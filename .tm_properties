@@ -1,6 +1,8 @@
 projectDirectory     = "$CWD"
 TM_PROJECT_DIRECTORY = "$projectDirectory"
 
+invisiblesMap = "~ "
+
 myExtraFileExcludes = ""
 myExtraFolderExcludes = "target,tmp,log"
 
