@@ -43,6 +43,7 @@ define(function (require) {
         'md2d':             require('models/md2d/controllers/controller'),
         'solar-system':     require('models/solar-system/controllers/controller'),
         'signal-generator': require('models/signal-generator/controller'),
+        'tortoise':         require('models/tortoise/controllers/controller'),
         'sensor':           require('models/sensor/controller'),
         'energy2d':         require('models/energy2d/controllers/controller')
       },

@@ -94,6 +94,10 @@
   :name: "Signal Generator Interactives"
   :category: Tests
 
+- :path: tortoise
+  :name: "Tortoise Interactives"
+  :category: Tests
+
 - :path: sensor
   :name: "Sensor Interactives"
   :category: Tests

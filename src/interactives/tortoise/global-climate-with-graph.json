@@ -1,0 +1,71 @@
+{
+  "title": "Global Climate w/graph",
+  "publicationStatus": "draft",
+  "subtitle": "Tortoise Global Climate model with graph",
+  "about": "",
+  "models": [
+    {
+      "type": "tortoise",
+      "id": "climate",
+      "url": "models/tortoise/tortoise.json",
+      "viewOptions": {
+        "controlButtons": "play_reset",
+        "showClock": true
+      },
+      "onLoad": [
+        "reset();"
+      ]
+    }
+  ],
+  "components": [
+    {
+      "type": "graph",
+      "id": "temperatureGraph",
+      "title": "Global Temperature",
+      "xlabel": "Time (years)",
+      "ylabel": "Temperature",
+      "ymin": -20,
+      "ymax": 50,
+      "xmax": 200,
+      "xTickCount": 5,
+      "xFormatter": ".2s",
+      "yFormatter": ".2s",
+      "properties": [
+        "climateTemperature"
+      ]
+    },
+    {
+      "type": "button",
+      "id": "add-cloud",
+      "text": "Add Cloud",
+      "action": "addCloud();"
+    },
+    {
+      "type": "button",
+      "id": "remove-cloud",
+      "text": "Remove Cloud",
+      "action": "removeCloud();"
+    },
+    {
+      "type": "button",
+      "id": "add-co2",
+      "text": "Add CO2",
+      "action": "addCO2();"
+    },
+    {
+      "type": "button",
+      "id": "remove-co2",
+      "text": "Remove CO2",
+      "action": "removeCO2();"
+    }
+  ],
+  "layout": {
+    "bottom": [
+      "add-cloud", "remove-cloud", "add-co2", "remove-co2"
+    ],
+    "right": [
+      "temperatureGraph"
+    ]
+  },
+  "template": "wide-right"
+}

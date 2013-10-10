@@ -1,0 +1,39 @@
+{
+  "title": "Tortoise1",
+  "publicationStatus": "draft",
+  "subtitle": "Testing the Tortoise model type",
+  "about": "",
+  "models": [
+    {
+      "type": "tortoise",
+      "id": "climate",
+      "url": "models/tortoise/tortoise.json",
+      "viewOptions": {
+        "controlButtons": "play_reset",
+        "showClock": true
+      },
+      "onLoad": [
+        "reset();"
+      ]
+    }
+  ],
+  "components": [
+    {
+      "type": "button",
+      "id": "setup",
+      "text": "Setup",
+      "action": ""
+    },
+    {
+      "type": "button",
+      "id": "go",
+      "text": "Go",
+      "action": ""
+    }
+  ],
+  "layout": {
+    "bottom": [
+      "setup", "go"
+    ]
+  }
+}
