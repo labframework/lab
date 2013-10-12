@@ -573,30 +573,31 @@ file `.keystore` then you do should leave the `:keystore_path` empty.
 
 The self-signed `lab-sample-keystore,jks` keystore was generated with the Java keytool command as follows:
 
-    $ keytool -genkey -keyalg RSA -keystore config/lab-sample-keystore,jks -alias lab-sample-keystore -storepass abc123 -validity 360 -keysize 2048
+    $ keytool -genkey -keyalg RSA -keystore config/lab-sample-keystore.jks -alias lab-sample-keystore -storepass abc123 -validity 360 -keysize 2048
     What is your first and last name?
       [Unknown]:  Stephen Bannasch
     What is the name of your organizational unit?
-      [Unknown]:  Lab Project
+      [Unknown]:  Lab Framework
     What is the name of your organization?
-      [Unknown]:  Concord Consortium
+      [Unknown]:  Learn Make Teach Share
     What is the name of your City or Locality?
-      [Unknown]:  Concord
+      [Unknown]:  Shutesbury
     What is the name of your State or Province?
       [Unknown]:  Massachusetts
     What is the two-letter country code for this unit?
       [Unknown]:  US
-    Is CN=Stephen Bannasch, OU=Lab Project, O=Concord Consortium, L=Concord, ST=Massachusetts, C=US correct?
+    Is CN=Stephen Bannasch, OU=Lab Framework, O=Learn Make Teach Share, L=Shutesbury, ST=Massachusetts, C=US correct?
       [no]:  yes
+
     Enter key password for <lab-sample-keystore>
     	(RETURN if same as keystore password):
 
     $ keytool -selfcert -alias lab-sample-keystore -keystore config/lab-sample-keystore.jks
-    Enter keystore password:
+    Enter keystore password: abc123
 
 ##### Building the Java Resources
 
-**Note:** Currently in order to compile OTrunk you need to include the Concord nexus Maven mirror in `~/.m2/settings.xml`. See [Customize Maven mirror](#customize_aven_mirror)
+**Note:** Currently in order to compile OTrunk you need to include the Concord nexus Maven mirror in `~/.m2/settings.xml`. See [Customize Maven mirror](#customize_maven_mirror)
 
 Run `make jnlp-all` to erase, build, package, sign and deploy all the Java resurces.
 
