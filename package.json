@@ -11,14 +11,14 @@
     "svg",
     "d3"
   ],
-  "homepage": "http://lab.dev.concord.org/",
+  "homepage": "http://labframework.org/",
   "author": {
     "name": "Stephen Bannasch",
     "url": "https://github.com/stepheneb"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/concord-consortium/lab.git"
+    "url": "https://github.com/labframework/lab.git"
   },
   "dependencies": {
     "optimist": ">=0.6.0",
