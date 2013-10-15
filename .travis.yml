@@ -5,16 +5,12 @@ branches:
 notifications:
   irc: 
     channels:
-      - "irc.freenode.org#ccdevs"
+      - "irc.freenode.org#labframework"
     on_success: change
     on_failure: always
   email:
     recipients:
       - stephen.bannasch@gmail.com
-      - sfentress@concord.org
-      - rpk@pobox.com
-      - janikpiotrek@gmail.com
-      - scytacki@concord.org
     on_success: change
     on_failure: always
 install: sudo apt-get install libicu-dev
