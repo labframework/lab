@@ -12,7 +12,7 @@
   development:
     :hostname: localhost:9292
   production:
-    :hostname: lab.concord.org
+    :hostname: lab.labframework.org
 :jsconfig:
   # This can be set optionally set to true to disable links to DataGames and Java models
   # Can even be done dynamically: LAB_STATIC=true ./script/generate-js-config.rb
@@ -20,11 +20,11 @@
   :sharing: true
   :logging: true
   :tracing: false
-  :home: http://lab.concord.org
+  :home: http://lab.labframework.org
   # Set :homeForSharing to the host where shared Interactives are found
   # if you don't want to share the ones on the actual server.
   # Example if you host the Interactives on a static S3 site and want the
-  # sharing links to point to the same Interactives at http://lab.concord.org
+  # sharing links to point to the same Interactives at http://lab.labframework.org
   :homeForSharing:
   :homeInteractivePath: /interactives.html
   :homeEmbeddablePath: /embeddable.html
@@ -35,6 +35,8 @@
 :google_analytics:
   :account_id:
 # password and alias for Java siging certificate.
+# This self-signed certificate should be replaced with a real certificate
+# if the server is delivering signed applets or jars in a production setting.
 :java:
   :password: abc123
   :alias: lab-sample-keystore
@@ -43,26 +45,18 @@
 :deploy:
   :targets:
   - :name: lab
-    :url: lab.concord.org
-    :branch: production
-  - :name: lab-staging
-    :url: lab-staging.concord.org
-    :branch: staging
+    :url: lab.labframework.org
+    :branch: master
+    :ec2_flavor: m1.medium
   - :name: lab-dev
-    :url: lab.dev.concord.org
+    :url: dev.labframework.org
     :branch: master
-    :dataGamesProxyPrefix: DataGames/Games/concord/lab.dev/
-  - :name: lab2-dev
-    :url: lab2.dev.concord.org
-    :branch: inquiry-space
-    :dataGamesProxyPrefix: DataGames/Games/concord/lab.dev2/
-  - :name: lab3-dev
-    :url: lab3.dev.concord.org
-    :branch: master
-    :dataGamesProxyPrefix: DataGames/Games/concord/lab.dev3/
-  :group_name: lab.dev
-  :zone_domain: concord.org.
-  :zone_records_name: dev.concord.org
+  :ami: ami-d33163ba
+  :ec2_flavor: m1.small
+  :group_name: lab
+  :zone_domain: labframework.org.
+  :zone_records_name: labframework.org
   :pem:
-    :name: lab-dev
+    :name: lab-key
     :path: ~/.ec2
+
