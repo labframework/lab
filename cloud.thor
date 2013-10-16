@@ -34,6 +34,7 @@ class Cloud < Thor
   def create(hostname)
     aws = AwsLabServer.new
     aws.create(hostname)
+    aws.write_capistrano_deploy_script
   end
 
   desc "recreate hostname", "recreate a new server instance for this hostname by destroying and rebuilding an existing server"
