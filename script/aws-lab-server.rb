@@ -6,8 +6,10 @@ require 'resolv'
 
 class AwsLabServer
 
-  attr_reader :options, :name, :pem, :pem_path, :compute, :dns, :zone
+  attr_reader :options, :name, :target, :pem, :pem_path, :compute, :dns, :zone
 
+  AMI               = CONFIG[:deploy][:ami]
+  EC2_FLAVOR        = CONFIG[:deploy][:ec2_flavor]
   PEM_NAME          = CONFIG[:deploy][:pem][:name]
   PEM_PATH          = CONFIG[:deploy][:pem][:path]
   GROUP_NAME        = CONFIG[:deploy][:group_name]
@@ -19,12 +21,12 @@ class AwsLabServer
   def initialize(options={})
     @options = {
       :verbose => true,
-      :littlechef_path => File.join(CONFIG_PATH, 'littlechef'),
+      :littlechef_path => File.join(CONFIG_PATH, 'lab-littlechef'),
       :pem => { :name => PEM_NAME, :path => PEM_PATH },
       :server => {
-        :image_id => "ami-41493828",
-        :flavor_id => "c1.medium",
-        :groups => ["lab.dev"],
+        :image_id => AMI,
+        :flavor_id => EC2_FLAVOR,
+        :groups => [GROUP_NAME],
         :tags => { "Name" => options[:name] }
       }
     }
@@ -54,7 +56,7 @@ file: ~/.fog
       end
     end
     @dns = ::Fog::DNS.new({ :provider => 'AWS' })
-    @zone = dns.zones.find { |z| z.domain == ZONE_DOMAIN }
+    @zone = @dns.zones.find { |z| z.domain == ZONE_DOMAIN }
   end
 
   def setup_ssh(hostname=false)
@@ -103,8 +105,11 @@ file: ~/.fog
 
   def create(hostname)
     @name = @options[:name] = hostname
-    check_for_target(@name)
+    @target = check_for_target(@name)
     @options[:server][:tags]["Name"] = @name
+    if @target[:ec2_flavor]
+      @options[:server][:flavor_id] = @target[:ec2_flavor]
+    end
     puts "\n*** creating new server: #{@name}" if @options[:verbose]
     @server = @compute.servers.create(@options[:server])
     puts "\n*** waiting for server: #{@server.id} to be ready ..." if @options[:verbose]
@@ -128,7 +133,7 @@ file: ~/.fog
 
   def delete(hostname)
     @name = hostname
-    check_for_target(@name)
+    @target = check_for_target(@name)
     @ipaddress = IPSocket::getaddress(@name)
     @server = @compute.servers.all({ 'ip-address' => @ipaddress }).first
     if @server
@@ -141,7 +146,7 @@ file: ~/.fog
 
   def recreate(hostname)
     @name = @options[:name] = hostname
-    check_for_target(@name)
+    @target = check_for_target(@name)
     @options[:server][:tags]["Name"] = @name
     self.delete(@name)
     puts "\n*** re-creating server: #{@name}" if @options[:verbose]
@@ -250,7 +255,7 @@ deploy:setup to finish deploying the application code and seting up #{@name}.
   end
 
   # Add the new hostname to the local .ssh/config referencing a local copy
-  # of lab-dev.pem so you can ssh into the server
+  # of lab-key.pem so you can ssh into the server
   def add_hostname_to_ssh_config
     cmd = <<-HEREDOC
 echo '
@@ -304,9 +309,9 @@ Host #{@name}
     available_addresses = @compute.addresses.all({"instance-id" => ""})
     if available_addresses.empty?
       # Allocate a new elastic ip
-      elasticip = compute.allocate_address
+      elasticip = @compute.allocate_address
       # TODO: check this -- which only happens when no elastic ips are available
-      ipaddress = elasticip.public_ip
+      ipaddress = elasticip.body["publicIp"]
     else
       # else use an available one
       ipaddress = available_addresses.last.public_ip
@@ -319,7 +324,7 @@ Host #{@name}
   end
 
   def check_for_target(url)
-    unless find_target(url)
+    unless target = find_target(url)
       puts <<-HEREDOC
 
 *** A target does not yet exist for #{url}.
@@ -328,6 +333,7 @@ Host #{@name}
       HEREDOC
       raise "No deploy target defined for #{url}."
     end
+    return target
   end
 
 
