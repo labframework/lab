@@ -33,7 +33,7 @@ end
 
 group :development do
 
-  gem "fog",                "~> 1.12.1"
+  gem "fog",                "~> 1.15.0"
 
   gem "chef",               "~> 11.6.0"
 
@@ -49,11 +49,11 @@ group :development do
   gem "travis-lint"
 
   # guard related ...
-  gem "guard",              "~> 1.8.2"
-  gem "guard-haml",         "~> 0.4"
+  gem "guard",              "~> 2.1.0"
+  gem "guard-haml",         "~> 1.1.0"
   gem "guard-sass",         "~> 1.3.2"
   gem "guard-shell",        "~> 0.5.1"
-  gem "guard-livereload",   "~> 1.4.0"
+  gem "guard-livereload",   "~> 2.0.0"
   gem 'guard-coffeescript', "~> 1.3.2"
   gem 'guard-markdown',     "~> 0.2.0"
   # FS Notification libraries for guard (non-polling)
