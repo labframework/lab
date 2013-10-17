@@ -123,8 +123,9 @@ file: ~/.fog
     else
       new_dns_record(@name, @ipaddress)
     end
-    add_hostname_to_ssh_config
     erase_existing_host_key(@name)
+    erase_existing_host_key(@ipaddress)
+    add_hostname_to_ssh_config
     add_new_host_key
     write_littlechef_node
     update_littlechef_node
@@ -156,6 +157,8 @@ file: ~/.fog
     @server.reload
     puts "\n*** associating server: #{@server.id}, #{@server.dns_name} with ipaddress: #{@ipaddress}"  if @options[:verbose]
     @compute.associate_address(@server.id, @ipaddress)
+    erase_existing_host_key(@name)
+    erase_existing_host_key(@ipaddress)
     add_new_host_key
     write_littlechef_node
     update_littlechef_node
