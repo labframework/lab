@@ -3,15 +3,15 @@
 HTML5-based open source scientific models, visualizations, graphing, and probeware from the
 [Concord Consortium](http://www.concord.org).
 
-- **[lab.concord.org](http://lab.concord.org/)** _(production)_
-- **[lab.dev.concord.org](http://lab.dev.concord.org/)** _(development)_
-- **[Developer Readme](http://lab.dev.concord.org/readme.html)** _(working demo links)_
-- **[github.com/concord-consortium/lab](https://github.com/concord-consortium/lab)** _(source)_
+- **[lab.labframework.org](http://lab.labframework.org/)** _(production)_
+- **[dev.labframework.org](http://dev.labframework.org/)** _(development)_
+- **[Developer Readme](http://lab.labframework.org/readme.html)** _(working demo links)_
+- **[github.com/labframework/lab](https://github.com/labframework/lab)** _(source)_
 
 _Note: some of the demo links in this readme do not resolve properly at
-[github.com/concord-consortium/lab](https://github.com/concord-consortium/lab).
+[github.com/labframework/lab](https://github.com/labframework/lab).
 A live version of the readme is always available here:
-[lab.dev.concord.org/readme.html](http://lab.dev.concord.org/readme.html)._
+[lab.labframework.org/readme.html](http://lab.labframework.org/readme.html)._
 
 **Table of Contents**
 
@@ -20,7 +20,7 @@ A live version of the readme is always available here:
 
 ## Licensing
 
-Lab is Copyright 2012 (c) by the Concord Consortium and is distributed under
+Lab is Copyright 2013 (c) by Stephen Bannasch and the Concord Consortium and is distributed under
 any of the following licenses:
 
 - [Simplified BSD](http://www.opensource.org/licenses/BSD-2-Clause),
@@ -30,8 +30,8 @@ any of the following licenses:
 The complete licensing details can be read [here](license.html).
 
 If you have have received a **distribution archive** of the
-[Concord Consortium Lab project](https://github.com/concord-consortium/lab)
-our copyright applies to all resources **except** the files in the
+[Lab project](https://github.com/labframework/lab)
+the copyright applies to all resources **except** the files in the
 `vendor/` directory. The files in the `vendor/` directory are from
 third-parties and are distributed under either BSD, MIT, or Apache 2.0 licenses.
 
@@ -42,9 +42,9 @@ Each of the examples below also has an **embeddable** form that fluidly scales t
 window it is rendered in and is designed to be easily embedded using an iframe.
 
 _Note: these demo links do not resolve properly at
-[github.com/concord-consortium/lab](https://github.com/concord-consortium/lab).
+[github.com/labframework/lab](https://github.com/labframework/lab).
 A live version of the readme where these links work is always available here:
-[lab.dev.concord.org/readme.html](http://lab.dev.concord.org/readme.html)._
+[lab.labframework.org/readme.html](http://lab.labframework.org/readme.html)._
 
 ### MD2D model-type: 2D molecular modeling
 
@@ -1821,7 +1821,7 @@ AWS account.**
         :deploy:
           :targets:
           - :name: lab-dev
-            :url: lab.dev.concord.org
+            :url: lab.labframework.org
             :branch: master
           :group_name: lab.dev
           :zone_domain: concord.org.
@@ -1830,7 +1830,7 @@ AWS account.**
             :name: lab-dev
             :path: ~/.ec2
 
-    There is one deploy target named `lab-dev` associated with a server running at `lab.dev.concord.org`.
+    There is one deploy target named `lab-dev` associated with a server running at `lab.labframework.org`.
     Deployments to `lab-dev` use the master branch of the repository. The `lab.dev` security group is
     used when new servers are created or existing sever are re-created.
 
@@ -1850,7 +1850,7 @@ AWS account.**
           Deploy Targets
           name                    url                           branch
         ------------------------------------------------------------------------------------------
-          lab-dev                 lab.dev.concord.org           master
+          lab-dev                 lab.labframework.org           master
 
 8.  Generate specific Capistrano deploy tasks and littlechef nodes using `deploy-targets`
     specified in `config/config.yml`. Run this `thor` task whenever you change the `:deploy`
@@ -1867,15 +1867,15 @@ AWS account.**
 
           target              hostname                      state         ipaddress           ec2-id          ec2-dns
         ------------------------------------------------------------------------------------------------------------------------------------------------------
-          lab-dev             lab.dev.concord.org.          running       107.22.184.173      i-f844ec81      ec2-107-22-184-173.compute-1.amazonaws.com
+          lab-dev             lab.labframework.org.          running       107.22.184.173      i-f844ec81      ec2-107-22-184-173.compute-1.amazonaws.com
 
-10. If you are working with an existing host that has already been setup such as `lab.dev.concord.org`
+10. If you are working with an existing host that has already been setup such as `lab.labframework.org`
     generate the proper ssh configuration and add the remote host key to `~/.ssh/known_hosts`.
     This adds a local **`ubuntu`** user in `~/ssh/config` and connects to the remote host to add the key.
 
     Example of setting up SSH configuration with the existing remote AWS host: `lab..dev.concord.org`:
 
-        $ thor cloud:setup_ssh lab.dev.concord.org
+        $ thor cloud:setup_ssh lab.labframework.org
 
 ### Using Capstrano to deploy new code to an existing server
 
@@ -1900,7 +1900,7 @@ Here are the list of current Capistrano deploy commands:
     cap deploy:update           # update server
     cap deploy:update_jnlps     # update public/jnlp dir on server
 
-Update the `lab.dev.concord.org` server with the latest code committed on the master branch on
+Update the `lab.labframework.org` server with the latest code committed on the master branch on
 [concord-consortium/lab](https://github.com/concord-consortium/lab}):
 
     cap lab-dev deploy:update
