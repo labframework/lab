@@ -1,13 +1,23 @@
-The [Concord Consortium Lab project](https://github.com/concord-consortium/lab)
-is Copyright 2012 (c) by the Concord Consortium and is distributed under
+The Lab Framework: [labframework/lab](https://github.com/labframework/lab)
+is Copyright 2013 (c) by Stephen Bannasch and is distributed under
 any of the following licenses:
 [Simplified BSD](http://www.opensource.org/licenses/BSD-2-Clause),
 [MIT](http://www.opensource.org/licenses/MIT), or
 [Apache 2.0](http://www.opensource.org/licenses/Apache-2.0).
 
+This work also includes work done by Stephen Bannasch and other developers at the
+Concord Consortium for the Next Generation Molecular Workbench Project:
+[concord-consortium/lab](https://github.com/concord-consortium/lab).
+All work done for the Next Generation Molecular Workbench Project
+at Concord Consortium is Copyright 2012 (c) by the Concord Consortium
+and is distributed under any of the following licenses:
+[Simplified BSD](http://www.opensource.org/licenses/BSD-2-Clause),
+[MIT](http://www.opensource.org/licenses/MIT), or
+[Apache 2.0](http://www.opensource.org/licenses/Apache-2.0).
+
 If you have have received a **distribution archive** of the
-[Concord Consortium Lab project](https://github.com/concord-consortium/lab) the standard
-Concord Consortium Lab copyright applies to all resources **except** the files in the
+[labframework/lab](https://github.com/labframework/lab) the standard
+Lab Framework copyright applies to all resources **except** the files in the
 `vendor/` and `imports/` directories as well as some of the generated CSS and some of the
 files in the `jnlp/` directory.
 
