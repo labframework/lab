@@ -42,7 +42,7 @@ define(function(require) {
 
     // Force between charge +1 and -1, 1 distance unit apart, with dielectric constant 1
     force = coulomb.force(1, -1, 1, 1);
-    // See disdcussion at http://lab.dev.concord.org/doc/models/md2d/macroscopic-units/
+    // See disdcussion at http://lab.labframework.org/doc/models/md2d/macroscopic-units/
     siFactor.charge = Math.sqrt(force * siFactor.force * siFactor.length * siFactor.length / COULOMB_CONSTANT);
 
     _.each(_.keys(siFactor), function(unitType) {

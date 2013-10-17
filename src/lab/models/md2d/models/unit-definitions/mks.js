@@ -7,7 +7,7 @@
 //
 // Such microscopic:macroscopic ratios as 1nm:1m can only be freely chosen for three unit types:
 // length, mass, and time. The remaining unit ratios are computed by the UnitsTranslation module.
-// See http://lab.dev.concord.org/doc/models/md2d/macroscopic-units/ for an overview of the
+// See http://lab.labframework.org/doc/models/md2d/macroscopic-units/ for an overview of the
 // calculations.
 //
 // In order to compute these ratios, the UnitsTranslation requires two pieces of
