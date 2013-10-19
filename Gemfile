@@ -19,8 +19,6 @@ group :app do
   gem "rack-livereload",    "~> 0.3.15"
 end
 
-gem "chef",               "~> 11.6.2"
-
 def darwin_only(require_as)
   RbConfig::CONFIG['host_os'] =~ /darwin/ && require_as
 end
@@ -34,6 +32,8 @@ def windows_only(require_as)
 end
 
 group :development do
+
+  gem "chef",               "~> 11.6.2"
 
   gem "fog",                "~> 1.15.0"
 
