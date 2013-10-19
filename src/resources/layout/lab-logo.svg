@@ -961,15 +961,15 @@
      id="namedview10016"
      showgrid="false"
      inkscape:zoom="3.7733333"
-     inkscape:cx="57.985866"
+     inkscape:cx="13.065371"
      inkscape:cy="1.5901059"
-     inkscape:window-x="119"
-     inkscape:window-y="3"
+     inkscape:window-x="230"
+     inkscape:window-y="0"
      inkscape:window-maximized="0"
      inkscape:current-layer="svg9281" />
   <g
      id="g10516"
-     transform="matrix(0.3,0,0,0.3,-64.220155,-0.64375556)">
+     transform="matrix(0.31021445,-0.05469918,0.05469918,0.31021445,-68.843615,10.091704)">
     <path
        d="m 239.05211,35.898341 6.80141,24.224"
        class="radialbond1"
@@ -1027,7 +1027,7 @@
      class="label" />
   <g
      id="g10522"
-     transform="matrix(0.3,0,0,0.3,-82.948402,24.24749)">
+     transform="matrix(0.315,0,0,0.315,-86.918331,25.484618)">
     <path
        d="m 315.4124,54.471198 19.21175,-14.68976"
        class="radialbond1"
@@ -1173,7 +1173,7 @@
          y="10.512367" /></flowRegion><flowPara
        id="flowPara10552" /></flowRoot>  <text
      xml:space="preserve"
-     style="font-size:14px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:110.00000238000001218%;letter-spacing:0px;word-spacing:0px;fill:#cccccc;fill-opacity:1;stroke:none;font-family:Lato;-inkscape-font-specification:Lato"
+     style="font-size:14px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:110.00000238000001218%;letter-spacing:0px;word-spacing:0px;fill:#e6e6e6;fill-opacity:1;stroke:none;font-family:Lato;-inkscape-font-specification:Lato"
      x="33.922264"
      y="20.053005"
      id="text3479"
@@ -1182,14 +1182,14 @@
        id="tspan3481"
        x="33.922264"
        y="20.053005"
-       style="font-size:18px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:110.00000238000001218%;writing-mode:lr-tb;text-anchor:start;fill:#cccccc;font-family:Open Sans;-inkscape-font-specification:Open Sans Bold"><tspan
-         style="font-size:14px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:Open Sans;-inkscape-font-specification:Open Sans Bold;fill:#cccccc"
+       style="font-size:18px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:110.00000238000001218%;writing-mode:lr-tb;text-anchor:start;fill:#e6e6e6;font-family:Open Sans;-inkscape-font-specification:Open Sans Bold"><tspan
+         style="font-size:14px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:Open Sans;-inkscape-font-specification:Open Sans Bold;fill:#e6e6e6"
          id="tspan3562">the</tspan><tspan
-         style="font-size:20px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:Open Sans;-inkscape-font-specification:Open Sans Bold;fill:#cccccc"
+         style="font-size:20px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:Open Sans;-inkscape-font-specification:Open Sans Bold;fill:#e6e6e6"
          id="tspan3560"> Lab</tspan></tspan><tspan
        sodipodi:role="line"
        x="33.922264"
        y="42.053005"
        id="tspan3483"
-       style="font-size:20px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:110.00000238000001218%;writing-mode:lr-tb;text-anchor:start;fill:#cccccc;font-family:Open Sans;-inkscape-font-specification:Open Sans Bold">Framework</tspan></text>
+       style="font-size:20px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:110.00000238000001218%;writing-mode:lr-tb;text-anchor:start;fill:#e6e6e6;font-family:Open Sans;-inkscape-font-specification:Open Sans Bold">Framework</tspan></text>
 </svg>
