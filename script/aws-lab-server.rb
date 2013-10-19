@@ -103,24 +103,39 @@ file: ~/.fog
     puts
   end
 
+  # Create an EC2 server with hostname and elastic IP address
+  #
+  #   aws = AwsLabServer.new
+  #   aws.create("lab.labframework.org")
+  #
+  # arguments:
+  #   hostname
+  #
+  # If the hostname exists as a DNS entry the elastic ip address
+  # will be reused when creating the server.
+  #
   def create(hostname)
+    self.setup_data_bags
     @name = @options[:name] = hostname
+    @dnsrecord = find_dns_record(@name)
     @target = check_for_target(@name)
     @options[:server][:tags]["Name"] = @name
     if @target[:ec2_flavor]
       @options[:server][:flavor_id] = @target[:ec2_flavor]
     end
-    puts "\n*** creating new server: #{@name}" if @options[:verbose]
+    puts "\n*** creating server: #{@name}" if @options[:verbose]
     @server = @compute.servers.create(@options[:server])
     puts "\n*** waiting for server: #{@server.id} to be ready ..." if @options[:verbose]
     @server.wait_for { ready? }
     @server.reload
-    @ipaddress = aquire_elastic_ip_address
+    if @dnsrecord
+      @ipaddress = @dnsrecord.value.first
+    else
+      @ipaddress = aquire_elastic_ip_address
+    end
     puts "\n*** associating server: #{@server.id}, #{@server.dns_name} with ipaddress: #{@ipaddress}"  if @options[:verbose]
     @compute.associate_address(@server.id, @ipaddress)
-    if find_dns_record(@name)
-      update_dns_record(@name, @ipaddress)
-    else
+    unless @dnsrecord
       new_dns_record(@name, @ipaddress)
     end
     erase_existing_host_key(@name)
@@ -138,7 +153,7 @@ file: ~/.fog
     @ipaddress = IPSocket::getaddress(@name)
     @server = @compute.servers.all({ 'ip-address' => @ipaddress }).first
     if @server
-      puts "\n*** terminating server: #{@server.id}, #{@server.dns_name}"  if @options[:verbose]
+      puts "\n*** terminating server: #{@server.id}, #{@server.dns_name} with ipaddress: #{@ipaddress}"  if @options[:verbose]
       @server.destroy
       erase_existing_host_key(@ipaddress)
       erase_existing_host_key(@name)
@@ -147,22 +162,8 @@ file: ~/.fog
 
   def recreate(hostname)
     @name = @options[:name] = hostname
-    @target = check_for_target(@name)
-    @options[:server][:tags]["Name"] = @name
     self.delete(@name)
-    puts "\n*** re-creating server: #{@name}" if @options[:verbose]
-    @server = @compute.servers.create(@options[:server])
-    puts "\n*** waiting for server: #{@server.id} to be ready ..." if @options[:verbose]
-    @server.wait_for { ready? }
-    @server.reload
-    puts "\n*** associating server: #{@server.id}, #{@server.dns_name} with ipaddress: #{@ipaddress}"  if @options[:verbose]
-    @compute.associate_address(@server.id, @ipaddress)
-    erase_existing_host_key(@name)
-    erase_existing_host_key(@ipaddress)
-    add_new_host_key
-    write_littlechef_node
-    update_littlechef_node
-    new_server_prologue(hostname)
+    self.create(@name)
   end
 
   def new_server_prologue(host)
@@ -277,7 +278,23 @@ Host #{@name}
 
   # Connect once with StrictHostKeyChecking off to add the new host key
   def add_new_host_key
-    run_local_command("ssh ubuntu@#{name} -o StrictHostKeyChecking=no exit")
+    cmd = "ssh ubuntu@#{name} -o StrictHostKeyChecking=no exit"
+    attempts = 1
+    success = run_local_command(cmd)
+    if !success
+      while attempts < 4
+        attempts += 1
+        delay = attempts * 10
+        puts <<-HEREDOC
+
+*** #{attempts} attempts: trying again in #{delay}s (maximum 4 tries)
+
+        HEREDOC
+        sleep(delay)
+        success = run_local_command(cmd)
+        break if success
+      end
+    end
   end
 
   def run_local_command(cmd)
@@ -339,6 +356,37 @@ Host #{@name}
     return target
   end
 
+
+  def setup_data_bags
+    littlechef_data_bags_path = File.join(@options[:littlechef_path], 'data_bags')
+
+    # write out json for each user to whose public key should be added to the deploy user
+    littlechef_data_bags_ssh_keys_path = File.join(littlechef_data_bags_path, 'ssh_keys')
+    FileUtils.mkdir_p littlechef_data_bags_ssh_keys_path
+    deploy_users = CONFIG[:deploy][:deploy_users]
+    deploy_users.each do |deploy_user|
+      filename = deploy_user[:id] + ".json"
+      path = File.join(littlechef_data_bags_ssh_keys_path, filename)
+      File.open(path, 'w') { |f| f.write JSON.pretty_generate(deploy_user) }
+    end
+
+    # write json for deploy user lising all public keys
+    littlechef_data_bags_users_path = File.join(littlechef_data_bags_path, 'users')
+    FileUtils.mkdir_p littlechef_data_bags_users_path
+    ssh_keys = []
+    deploy_users.each do |deploy_user|
+      ssh_keys += deploy_user[:public_keys]
+    end
+    deploy = {
+      "id" => "deploy",
+      "groups" => ["sysadmin"],
+      "shell" => "/bin/bash",
+      "ssh_keys"=> ssh_keys
+    }
+    filename = "deploy.json"
+    path = File.join(littlechef_data_bags_users_path, filename)
+    File.open(path, 'w') { |f| f.write JSON.pretty_generate(deploy) }
+  end
 
   def setup_littlechef_nodes
     @lab_servers = @compute.servers.all('group-name' => GROUP_NAME).find_all { |ls| ls.state == 'running' }

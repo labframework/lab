@@ -1,4 +1,8 @@
 ---
+#
+# Only the sample configuration, config.sample.yml is checked into the repository.
+# The actual configuration file, config.yml is *NOT* checked into the repository.
+#
 # environment can be 'development' or 'production'
 # production:
 #  - delivers minimized javascript resources
@@ -47,10 +51,11 @@
   - :name: lab
     :url: lab.labframework.org
     :branch: master
-    :ec2_flavor: m1.medium
+    :ec2_flavor: m1.small
   - :name: lab-dev
     :url: dev.labframework.org
     :branch: master
+    :ec2_flavor: c1.medium
   :ami: ami-d33163ba
   :ec2_flavor: m1.small
   :group_name: lab
@@ -59,4 +64,7 @@
   :pem:
     :name: lab-key
     :path: ~/.ec2
-
+  :deploy_users:
+  - :id: username
+    :public_keys:
+      - "ssh-dss public key"

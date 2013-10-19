@@ -27,7 +27,6 @@ Thumbs.db
 /sensor-projects
 /config/deploy
 src/experiments/inquiry-space-importer/reference/Importer.js
-config/lab-littlechef
 
 # Java keystore files, except the sample one included with lab
 /config/*.jks

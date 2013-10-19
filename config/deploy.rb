@@ -1,14 +1,15 @@
-require "bundler/capistrano"
 require "./script/setup"
 
 set :stages, CONFIG[:deploy][:targets].collect { |target| target[:name] }
 set :default_stage, "lab-dev"
+
 require 'capistrano/ext/multistage'
 
 set  :user, "deploy"
 
-set :rvm_type, :system
 require "rvm/capistrano"
+set :rvm_type, :system
+set :rvm_ruby_string, "ruby-2.0.0-p247@lab"
 
 desc "Echo the server's login env for deploy user"
 task :env_server do
@@ -22,15 +23,19 @@ task :ls_server do
   run "ls -als"
 end
 
-def server_config_settings_yml
-  # TODO: This wont work all the time....
-  server = find_servers_for_task(current_task).first
-  puts server.host
-  {
-    "production" => {
-      :hostname => ENV['LAB_HOST'] || server.host || "lab.dev.concord.org"
-    }
-  }.to_yaml
+desc "gem list"
+task :gem_list do
+  run "gem list"
+end
+
+desc "gem env"
+task :gem_env do
+  run "gem env"
+end
+
+desc "ruby version"
+task :ruby_version do
+  run "ruby --version"
 end
 
 namespace :deploy do
