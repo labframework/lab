@@ -19,6 +19,8 @@ group :app do
   gem "rack-livereload",    "~> 0.3.15"
 end
 
+gem "chef",               "~> 11.6.2"
+
 def darwin_only(require_as)
   RbConfig::CONFIG['host_os'] =~ /darwin/ && require_as
 end
@@ -34,8 +36,6 @@ end
 group :development do
 
   gem "fog",                "~> 1.15.0"
-
-  gem "chef",               "~> 11.6.0"
 
   # gem "librarian-chef"
   # work-around bug in version 0.1.0 of librarian
@@ -66,7 +66,7 @@ group :development do
   # deployment related ...
   gem "thor",               "~> 0.18.1"
   gem "capistrano",         "~> 2.15.5"
-  gem "rvm-capistrano",     "~> 1.4.0"
+  gem "rvm-capistrano",     "~> 1.5.1"
 
   # debuggers
   gem "pry"
