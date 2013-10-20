@@ -123,7 +123,10 @@ file: ~/.fog
     if @target[:ec2_flavor]
       @options[:server][:flavor_id] = @target[:ec2_flavor]
     end
-    puts "\n*** creating server: #{@name}" if @options[:verbose]
+    if @target[:ami]
+      @options[:server][:image_id] = @target[:ami]
+    end
+    puts "\n*** creating server: #{@name} from AMI: #{@options[:server][:image_id]}" if @options[:verbose]
     @server = @compute.servers.create(@options[:server])
     puts "\n*** waiting for server: #{@server.id} to be ready ..." if @options[:verbose]
     @server.wait_for { ready? }

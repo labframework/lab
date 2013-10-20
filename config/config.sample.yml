@@ -1,7 +1,8 @@
 ---
 #
-# Only the sample configuration, config.sample.yml is checked into the repository.
-# The actual configuration file, config.yml is *NOT* checked into the repository.
+# Only the sample configuration: config.sample.yml is checked into the repository.
+#
+# The actual configuration file: config.yml is *NOT* checked into the repository.
 #
 # environment can be 'development' or 'production'
 # production:
@@ -17,6 +18,8 @@
     :hostname: localhost:9292
   production:
     :hostname: lab.labframework.org
+
+# Configuration variables used to generate Lab.config JavaScript runtime object
 :jsconfig:
   # This can be set optionally set to true to disable links to DataGames and Java models
   # Can even be done dynamically: LAB_STATIC=true ./script/generate-js-config.rb
@@ -25,6 +28,7 @@
   :logging: true
   :tracing: false
   :home: http://lab.labframework.org
+
   # Set :homeForSharing to the host where shared Interactives are found
   # if you don't want to share the ones on the actual server.
   # Example if you host the Interactives on a static S3 site and want the
@@ -36,34 +40,59 @@
   :actualRoot: ""
   :utmCampaign:
   :fontface: Lato
+
+# Optional: used to generate calls to google analytics in HTML pages
 :google_analytics:
   :account_id:
+
 # password and alias for Java siging certificate.
-# This self-signed certificate should be replaced with a real certificate
-# if the server is delivering signed applets or jars in a production setting.
+# If the server is delivering signed applets or jars in a production setting.
+# replace this self-signed certificate with a real certificate
 :java:
   :password: abc123
   :alias: lab-sample-keystore
   :keystore_path: config/lab-sample-keystore.jks
-# deploy configuration for working with Amazon Web Services
+
+# target deployment configurations for:
+#   1. working with Amazon Web Services to create or re-create servers
+#   2. deploying to servers using capistrano
 :deploy:
   :targets:
   - :name: lab
     :url: lab.labframework.org
     :branch: master
     :ec2_flavor: m1.small
+    :ami: ami-2d6c3144
   - :name: lab-dev
     :url: dev.labframework.org
     :branch: master
-    :ec2_flavor: c1.medium
-  :ami: ami-d33163ba
+    :ec2_flavor: t1.micro
+    :ami: ami-2d6c3144
+
+  # default AWS AMI to use unless overridden in target specification
+  # ami-2d6c3144: chef11-unbuntu-12.04-64-bit-8gb
+  #
+  # AMI with 512k swap useful for t1.micro instances
+  # ami-e76e338e: chef11-unbuntu-12.04-64-bit-8gb-512kswap
+  :ami: ami-2d6c3144
+
+  # default AWS EC2 Instance Type
+  # see: http://aws.amazon.com/ec2/instance-types/instance-details/
   :ec2_flavor: m1.small
+
+  # AWS security group
   :group_name: lab
+
+  # AWS Route 53 zone domain
   :zone_domain: labframework.org.
   :zone_records_name: labframework.org
+
+  # AWS private key location
   :pem:
     :name: lab-key
     :path: ~/.ec2
+
+  # usernames and public keys to add to deploy user on server
   :deploy_users:
   - :id: username
     :public_keys:
