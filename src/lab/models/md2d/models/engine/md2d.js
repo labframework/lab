@@ -18,13 +18,6 @@ define(function (require, exports) {
       PluginController     = require('common/models/plugin-controller'),
       utils                = require('./utils'),
 
-      // from A. Rahman "Correlations in the Motion of Atoms in Liquid Argon", Physical Review 136 pp. A405–A411 (1964)
-      ARGON_LJ_EPSILON_IN_EV = -120 * constants.BOLTZMANN_CONSTANT.as(unit.EV_PER_KELVIN),
-      ARGON_LJ_SIGMA_IN_NM   = 0.34,
-
-      ARGON_MASS_IN_DALTON = 39.95,
-      ARGON_MASS_IN_KG = constants.convert(ARGON_MASS_IN_DALTON, { from: unit.DALTON, to: unit.KILOGRAM }),
-
       BOLTZMANN_CONSTANT_IN_JOULES = constants.BOLTZMANN_CONSTANT.as( unit.JOULES_PER_KELVIN ),
 
       cross = function(a0, a1, b0, b1) {
@@ -131,14 +124,8 @@ define(function (require, exports) {
         // otherwise value should be false
         gravitationalField = false,
 
-        // Whether a transient temperature change is in progress.
-        temperatureChangeInProgress = false,
-
         // Desired system temperature, in Kelvin.
         T_target,
-
-        // Tolerance for (T_actual - T_target) relative to T_target
-        tempTolerance = 0.001,
 
         // System dimensions as [x, y] in nanometers. Default value can be changed until particles are created.
         size = [10, 10],
@@ -434,13 +421,6 @@ define(function (require, exports) {
         // Each object at ljCalculator[i,j] can calculate the magnitude of the Lennard-Jones force and
         // potential between elements i and j
         ljCalculator = [],
-
-        // Optimization related variables:
-        // Whether any atoms actually have charges
-        hasChargedAtoms = false,
-
-        // List of atoms with charge.
-        chargedAtomsList = [],
 
         // List of particles representing cysteine amino acid, which can possibly create disulphide bonds.
         // So, each cysteine in this list is NOT already connected to other cysteine.
@@ -914,23 +894,6 @@ define(function (require, exports) {
           electricFields.shapeIdx    = [];
 
           assignShortcutReferences.electricFields();
-        },
-
-
-        // Function that accepts a value T and returns an average of the last n values of T (for some n).
-        getTWindowed,
-
-        // Dynamically determine an appropriate window size for use when measuring a windowed average of the temperature.
-        getWindowSize = function() {
-          return useCoulombInteraction && hasChargedAtoms ? 1000 : 1000;
-        },
-
-        // Whether or not the thermostat is not being used, begins transiently adjusting the system temperature; this
-        // causes the adjustTemperature portion of the integration loop to rescale velocities until a windowed average of
-        // the temperature comes within `tempTolerance` of `T_target`.
-        beginTransientTemperatureChange = function()  {
-          temperatureChangeInProgress = true;
-          getTWindowed = math.getWindowedAverager( getWindowSize() );
         },
 
         // Calculates & returns instantaneous temperature of the system.
@@ -1408,8 +1371,8 @@ define(function (require, exports) {
                 y[i] = (my - y_prev) - 2 * ((mx - x_prev) * nx + (my - y_prev) * ny) * ny + my;
 
                 // Reflect the atom's velocity off the normal vector
-                tvx = vx[i]
-                tvy = vy[i]
+                tvx = vx[i];
+                tvy = vy[i];
                 vx[i] = (tvx - 2 * (tvx * nx + tvy * ny) * nx);
                 vy[i] = (tvy - 2 * (tvx * nx + tvy * ny) * ny);
               }
@@ -1422,8 +1385,6 @@ define(function (require, exports) {
           if (N_lines < 1) return;
 
           var r,
-              x1,
-              y1,
               ld,
               atom1_to_line,
               atom2_to_line,
@@ -1431,7 +1392,9 @@ define(function (require, exports) {
               line2_to_atom,
               mx,my,
               nx,ny,nd,
-              tvx,tvy;
+              tvx,tvy,
+              j,
+              xi, yi;
 
           r = radius[i];
           xi = x[i];
@@ -1471,8 +1434,8 @@ define(function (require, exports) {
                 y[i] = (my - y_prev) - 2 * ((mx - x_prev) * nx + (my - y_prev) * ny) * ny + my;
 
                 // Reflect the atom's velocity off the normal vector
-                tvx = vx[i]
-                tvy = vy[i]
+                tvx = vx[i];
+                tvy = vy[i];
                 vx[i] = (tvx - 2 * (tvx * nx + tvy * ny) * nx);
                 vy[i] = (tvy - 2 * (tvx * nx + tvy * ny) * ny);
               }
@@ -1576,7 +1539,7 @@ define(function (require, exports) {
 
         updateLongRangeForces = function() {
           // Fast path if Coulomb interaction is disabled or there are no charged atoms.
-          if (!useCoulombInteraction || !hasChargedAtoms) return;
+          if (!useCoulombInteraction || chargedAtomsList.length === 0) return;
 
           var i, j, len, dx, dy, rSq, fOverR, fx, fy,
               charge1, atom1Idx, atom2Idx,
@@ -2130,11 +2093,11 @@ define(function (require, exports) {
             // Fast path when obstacle isn't movable.
             if (obstacleMass[i] === Infinity) continue;
 
-            vx = obstacleVX[i],
-            vy = obstacleVY[i],
+            vx = obstacleVX[i];
+            vy = obstacleVY[i];
             // External forces are defined per mass unit!
             // So, they are accelerations in fact.
-            extFx = obstacleExtAX[i],
+            extFx = obstacleExtAX[i];
             extFy = obstacleExtAY[i];
 
             if (vx || vy || extFx || extFy || gravitationalField) {
@@ -2227,11 +2190,7 @@ define(function (require, exports) {
             }
           }
 
-          if (temperatureChangeInProgress && Math.abs(getTWindowed(T) - target) <= target * tempTolerance) {
-            temperatureChangeInProgress = false;
-          }
-
-          if (forceAdjustment || useThermostat || temperatureChangeInProgress && T > 0) {
+          if (forceAdjustment || useThermostat && T > 0) {
             rescalingFactor = Math.sqrt(target / T);
 
             // Scale particles velocity.
@@ -2348,8 +2307,22 @@ define(function (require, exports) {
           }
         };
 
-        // ####################################################################
-        // ####################################################################
+    // A list of the indices of atoms having nonzero charge.
+    // (Yes, this introduces some slightly different code patterns than are used elsewhere here, as
+    // it's probably time to evolve away from this-avoidance and the onevar style.)
+    var chargedAtomsList = [];
+    chargedAtomsList.reset = function() {
+      var i, j = 0;
+      for (i = 0; i < N; i++) {
+        if (atoms.charge[i]) {
+          this[j++] = i;
+        }
+      }
+      this.length = j;
+    };
+
+    // ####################################################################
+    // ####################################################################
 
     engine = {
 
@@ -2503,7 +2476,7 @@ define(function (require, exports) {
 
       setAtomProperties: function (i, props) {
         var cysteineEl = aminoacidsHelper.cysteineElement,
-            key, idx, rest, amino, j;
+            key, amino, j;
 
         if (props.element !== undefined) {
           if (props.element < 0 || props.element >= N_elements) {
@@ -2551,13 +2524,8 @@ define(function (require, exports) {
         } else if (charge[i] && props.charge === 0) {
           // charge[i] => shortcut for charge[i] !== undefined && charge[i] !== 0 (both cases can occur).
           // Remove index from charged atoms list.
-          idx = chargedAtomsList.indexOf(i);
-          rest = chargedAtomsList.slice(idx + 1);
-          chargedAtomsList.length = idx;
-          Array.prototype.push.apply(chargedAtomsList, rest);
+          chargedAtomsList.splice(chargedAtomsList.indexOf(i), 1);
         }
-        // Update optimization flag.
-        hasChargedAtoms = !!chargedAtomsList.length;
 
         // Set all properties from props hash.
         for (key in props) {
@@ -2741,11 +2709,15 @@ define(function (require, exports) {
         // Set acceleration of new atom to zero.
         props.ax = props.ay = 0;
 
-        // Increase number of atoms.
-        N++;
+        // Remove any stray value from charge--setAtomProperties updates chargedAtomsList based on
+        // whether the atom was charged previously.
+        charge[N] = 0;
 
         // Set provided properties of new atom.
-        engine.setAtomProperties(N - 1, props);
+        engine.setAtomProperties(N, props);
+
+        // Increase number of atoms.
+        N++;
 
         // Initialize helper structures for optimizations.
         initializeCellList();
@@ -2781,7 +2753,6 @@ define(function (require, exports) {
         if (i !== -1) {
           arrays.remove(chargedAtomsList, i);
         }
-
 
         // Finally, remove atom.
 
@@ -3448,21 +3419,6 @@ define(function (require, exports) {
         return vdwPairs;
       },
 
-      relaxToTemperature: function(T) {
-
-        // FIXME this method needs to be modified. It should rescale velocities only periodically
-        // and stop when the temperature approaches a steady state between rescalings.
-
-        if (T != null) T_target = T;
-
-        validateTemperature(T_target);
-
-        beginTransientTemperatureChange();
-        while (temperatureChangeInProgress) {
-          engine.integrate();
-        }
-      },
-
       // Velocity Verlet integration scheme.
       // See: http://en.wikipedia.org/wiki/Verlet_integration#Velocity_Verlet
       // The current implementation is:
@@ -3768,7 +3724,7 @@ define(function (require, exports) {
             if (useLennardJonesInteraction) {
               PE -=ljCalculator[element[i]][element[j]].potentialFromSquaredDistance(r_sq);
             }
-            if (useCoulombInteraction && hasChargedAtoms) {
+            if (useCoulombInteraction && chargedAtomsList.length > 0) {
               PE += coulomb.potential(Math.sqrt(r_sq), charge[i], charge[j], dielectricConst, realisticDielectricEffect);
             }
           }
@@ -3924,7 +3880,7 @@ define(function (require, exports) {
               }
             }
 
-            if (useCoulombInteraction && hasChargedAtoms && testCharge) {
+            if (useCoulombInteraction && chargedAtomsList.length > 0 && testCharge) {
               r = Math.sqrt(r_sq);
               PE += -coulomb.potential(r, testCharge, charge[i], dielectricConst, realisticDielectricEffect);
               if (calculateGradient) {
@@ -4057,7 +4013,7 @@ define(function (require, exports) {
         // Let client code reuse objects.
         resultObj = resultObj || {};
         // Fast path if Coulomb interaction is disabled or there are no charged atoms.
-        if (!useCoulombInteraction || !hasChargedAtoms) {
+        if (!useCoulombInteraction || chargedAtomsList.length === 0) {
           resultObj.fx = resultObj.fy = 0;
           return resultObj;
         }
@@ -4193,6 +4149,9 @@ define(function (require, exports) {
               N_angularBonds = state.N_angularBonds;
               N_restraints   = state.N_restraints;
               N_springForces = state.N_springForces;
+
+              neighborList.invalidate();
+              chargedAtomsList.reset();
             }
           }
         ];
