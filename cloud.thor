@@ -25,9 +25,9 @@ class Cloud < Thor
   desc "setup", "setup capistrano deploy tasks, littlechef nodes and data_bags using targets and deploy users in config/config.yml"
   def setup
     aws = AwsLabServer.new
-    aws.setup_capistrano_deploy_scripts
     aws.setup_littlechef_nodes
     aws.setup_data_bags
+    aws.setup_capistrano_deploy_scripts
     aws.setup_ssh
   end
 
