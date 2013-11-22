@@ -1,6 +1,5 @@
 #!/usr/bin/env ruby
 require_relative 'setup.rb'
-require 'grit'
 require "erb"
 
 ENCODING_OPTIONS = {
@@ -25,15 +24,28 @@ def unpushed?
   !system("git diff --cached --exit-code --quiet")
 end
 
-repo = Grit::Repo.new(".")
-head = repo.head
-head_commit_sha = `git log -1 --pretty="%H"`.strip
-commit = repo.commit(head_commit_sha)
+commit_sha = `git log -1 --pretty="%H"`.strip
+commit_short_sha = `git log -1 --pretty="%h"`.strip
+commit_author = `git log -1 --pretty="%an"`.strip
+commit_author_email = `git log -1 --pretty="%ae"`.strip
+commit_author_date = `git log -1 --pretty="%ar"`.strip
+commit_short_message = `git log -1 --pretty="%s"`.strip
+commit_message = `git log -1 --pretty="%B"`.strip
 
-branch_name = head.name if head != nil
+branch_name = `git rev-parse --abbrev-ref HEAD`.strip
+# => "master"
 
-short_message = ERB::Util.html_escape(commit.short_message.gsub("\n", "\\n"))
-message = ERB::Util.html_escape(commit.message.gsub("\n", "\\n"))
+remote_branch = `git rev-parse --symbolic-full-name --abbrev-ref #{branch_name}@{u}`.strip
+# => "origin/master"
+
+remote_url = `git config --get remote.origin.url`.strip
+# => "git@github.com:labframework/lab.git"
+
+github_project = remote_url[/.*:(.*?)\.git$/, 1]
+# => "labframework/lab"
+
+short_message = ERB::Util.html_escape(commit_short_message.gsub("\n", "\\n"))
+message = ERB::Util.html_escape(commit_message.gsub("\n", "\\n"))
 
 version = <<HEREDOC
 // this file is generated during build process by: ./script/generate-js-version.rb
@@ -42,12 +54,12 @@ define(function (require) {
     "repo": {
       "branch": "#{branch_name}",
       "commit": {
-        "sha":           "#{commit.id}",
-        "short_sha":      "#{commit.id[0..7]}",
-        "url":            "https://github.com/concord-consortium/lab/commit/#{commit.id[0..7]}",
-        "author":        "#{commit.author.name}",
-        "email":         "#{commit.author.email}",
-        "date":          "#{commit.committed_date}",
+        "sha":           "#{commit_sha}",
+        "short_sha":     "#{commit_short_sha}",
+        "url":           "https://github.com/#{github_project}/lab/commit/#{commit_short_sha}",
+        "author":        "#{commit_author}",
+        "email":         "#{commit_author_email}",
+        "date":          "#{commit_author_date}",
         "short_message": "#{short_message}",
         "message":       "#{cleanup_string(message)}"
       },
