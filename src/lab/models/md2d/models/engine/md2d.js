@@ -37,6 +37,7 @@ define(function (require, exports) {
           T: K
       */
       convertKEtoT = function(totalKEinMWUnits, N) {
+        if (N === 0) return 0;
         var averageKEinMWUnits = totalKEinMWUnits / N,
             averageKEinJoules = constants.convert(averageKEinMWUnits, { from: unit.MW_ENERGY_UNIT, to: unit.JOULE });
         return averageKEinJoules / BOLTZMANN_CONSTANT_IN_JOULES;
@@ -200,10 +201,6 @@ define(function (require, exports) {
         // An object that contains references to the above radial-bond-property arrays.
         // Left undefined if there are no radial bonds.
         radialBonds,
-
-        // radialBondMatrix[i][j] === true when atoms i and j are "radially bonded"
-        // radialBondMatrix[i][j] === undefined otherwise
-        radialBondMatrix,
 
         // Number of actual radial bonds (may be smaller than the length of the property arrays).
         N_radialBonds = 0,
@@ -442,8 +439,6 @@ define(function (require, exports) {
 
           // Custom pairwise properties.
           pairwiseLJProperties = new PairwiseLJProperties(engine);
-
-          radialBondMatrix = [];
         },
 
         // Throws an informative error if a developer tries to use the setCoefficients method of an
@@ -566,23 +561,6 @@ define(function (require, exports) {
             neighborList.reinitialize(N, computeNeighborListMaxDisplacement());
           }
         },
-
-        // Calculates radial bond matrix using existing radial bonds.
-        calculateRadialBondMatrix = function () {
-          var i, atom1, atom2;
-
-          radialBondMatrix = [];
-
-          for (i = 0; i < N_radialBonds; i++) {
-            atom1 = radialBondAtom1Index[i];
-            atom2 = radialBondAtom2Index[i];
-            radialBondMatrix[atom1] = radialBondMatrix[atom1] || [];
-            radialBondMatrix[atom1][atom2] = true;
-            radialBondMatrix[atom2] = radialBondMatrix[atom2] || [];
-            radialBondMatrix[atom2][atom1] = true;
-          }
-        },
-
 
         /**
           Set up "shortcut" references, e.g., x = atoms.x
@@ -2305,6 +2283,27 @@ define(function (require, exports) {
               obstacleWProbeValue[i] *= mult / obstacleHeight[i];
             }
           }
+        },
+
+        // Removes all angular bonds that includes atom1 and atom2 as one of the "arms".
+        // Function is useful when e.g. radial bond is removed.
+        removeAngularBondsContaining = function (atom1, atom2, conserveEnergy) {
+          var i;
+          // Use such "strange" form of loop, as while removing one bonds,
+          // other change their indexing. So, after removal of bond 5, we
+          // should check bond 5 again, as it would be another bond (previously
+          // indexed as 6).
+          i = 0;
+          while (i < N_angularBonds) {
+            // Remove related angular bonds.
+            if ((angularBondAtom1Index[i] === atom1 && angularBondAtom3Index[i] === atom2) ||
+                (angularBondAtom1Index[i] === atom2 && angularBondAtom3Index[i] === atom1) ||
+                (angularBondAtom2Index[i] === atom1 && angularBondAtom3Index[i] === atom2) ||
+                (angularBondAtom2Index[i] === atom2 && angularBondAtom3Index[i] === atom1))
+              engine.removeAngularBond(i, conserveEnergy);
+            else
+              i++;
+          }
         };
 
     // A list of the indices of atoms having nonzero charge.
@@ -2321,6 +2320,24 @@ define(function (require, exports) {
       this.length = j;
     };
 
+    // radialBondMatrix[i][j] === true when atoms i and j are "radially bonded"
+    // radialBondMatrix[i][j] === undefined otherwise
+    var radialBondMatrix = [];
+    radialBondMatrix.reset = function () {
+      var i, atom1, atom2;
+
+      this.length = 0;
+
+      for (i = 0; i < N_radialBonds; i++) {
+        atom1 = radialBondAtom1Index[i];
+        atom2 = radialBondAtom2Index[i];
+        this[atom1] = this[atom1] || [];
+        this[atom1][atom2] = true;
+        this[atom2] = this[atom2] || [];
+        this[atom2][atom1] = true;
+      }
+    };
+
     // ####################################################################
     // ####################################################################
 
@@ -2335,7 +2352,12 @@ define(function (require, exports) {
           // plugins can update the data arrays as needed so we pass in the arrays.
           // we do this as an object, so we can add new arrays as needed by the plugins
           // without needing to update all existing plugins
-          plugin.initialize({atoms: atoms, elements: elements, radialBonds: radialBonds});
+          plugin.initialize({
+            atoms: atoms,
+            elements: elements,
+            radialBonds: radialBonds,
+            angularBonds: angularBonds
+          });
         }
 
         pluginController.registerPlugin(plugin);
@@ -2540,17 +2562,23 @@ define(function (require, exports) {
         speed[i] = Math.sqrt(vx[i] * vx[i] + vy[i] * vy[i]);
       },
 
-      setRadialBondProperties: function(i, props) {
-        var key, atom1Idx, atom2Idx;
+      setRadialBondProperties: function(i, props, conserveAngularBondsEnergy) {
+        var key, atom1, atom2;
 
         // Unset current radial bond matrix entry.
         // Matrix will be updated when new properties are set.
-        atom1Idx = radialBondAtom1Index[i];
-        atom2Idx = radialBondAtom2Index[i];
-        if (radialBondMatrix[atom1Idx] && radialBondMatrix[atom1Idx][atom2Idx])
-          radialBondMatrix[atom1Idx][atom2Idx] = false;
-        if (radialBondMatrix[atom2Idx] && radialBondMatrix[atom2Idx][atom1Idx])
-          radialBondMatrix[atom2Idx][atom1Idx] = false;
+        atom1 = radialBondAtom1Index[i];
+        atom2 = radialBondAtom2Index[i];
+        if (radialBondMatrix[atom1] && radialBondMatrix[atom1][atom2])
+          radialBondMatrix[atom1][atom2] = false;
+        if (radialBondMatrix[atom2] && radialBondMatrix[atom2][atom1])
+          radialBondMatrix[atom2][atom1] = false;
+
+        // If atom1 or atom2 properties are changed, remove related angular bonds.
+        if ((props.atom1 !== undefined && props.atom1 !== atom1) ||
+            (props.atom2 !== undefined && props.atom2 !== atom2)) {
+          removeAngularBondsContaining(atom1, atom2, conserveAngularBondsEnergy);
+        }
 
         // Set all properties from props hash.
         for (key in props) {
@@ -2560,12 +2588,12 @@ define(function (require, exports) {
         }
 
         // Update radial bond matrix.
-        atom1Idx = radialBondAtom1Index[i];
-        atom2Idx = radialBondAtom2Index[i];
-        if (!radialBondMatrix[atom1Idx]) radialBondMatrix[atom1Idx] = [];
-        radialBondMatrix[atom1Idx][atom2Idx] = true;
-        if (!radialBondMatrix[atom2Idx]) radialBondMatrix[atom2Idx] = [];
-        radialBondMatrix[atom2Idx][atom1Idx] = true;
+        atom1 = radialBondAtom1Index[i];
+        atom2 = radialBondAtom2Index[i];
+        if (!radialBondMatrix[atom1]) radialBondMatrix[atom1] = [];
+        radialBondMatrix[atom1][atom2] = true;
+        if (!radialBondMatrix[atom2]) radialBondMatrix[atom2] = [];
+        radialBondMatrix[atom2][atom1] = true;
       },
 
       setAngularBondProperties: function(i, props) {
@@ -2790,7 +2818,7 @@ define(function (require, exports) {
         }
 
         // Recalculate radial bond matrix, as indices have changed.
-        calculateRadialBondMatrix();
+        radialBondMatrix.reset();
 
         // (Re)initialize helper structures for optimizations.
         initializeCellList();
@@ -2851,31 +2879,15 @@ define(function (require, exports) {
         radialBondsChanged = true;
       },
 
-      removeRadialBond: function(idx) {
-        var i, prop, atom1, atom2;
+      removeRadialBond: function(idx, conserveAngularBondsEnergy) {
+        var i, prop;
 
         if (idx >= N_radialBonds) {
           throw new Error("Radial bond " + idx + " doesn't exist, so it can't be removed.");
         }
 
         // Start from removing angular bonds.
-        atom1 = radialBondAtom1Index[idx];
-        atom2 = radialBondAtom2Index[idx];
-
-        // Use such "strange" form of loop, as while removing one bonds,
-        // other change their indexing. So, after removal of bond 5, we
-        // should check bond 5 again, as it would be another bond (previously
-        // indexed as 6).
-        i = 0;
-        while (i < N_angularBonds) {
-          // Remove angular bond only when one of atoms is the CENTRAL atom of the given angular bond.
-          // It means that this radial bond creates given angular bond.
-          // Atom3Index is index of central atom in angular bonds.
-          if (angularBondAtom3Index[i] === atom1 || angularBondAtom3Index[i] === atom2)
-            engine.removeAngularBond(i);
-          else
-            i++;
-        }
+        removeAngularBondsContaining(radialBondAtom1Index[idx], radialBondAtom2Index[idx], conserveAngularBondsEnergy);
 
         // Shift radial bonds properties and zero last element.
         // It can be optimized by just replacing the last
@@ -2897,7 +2909,7 @@ define(function (require, exports) {
         N_radialBonds--;
 
         // Recalculate radial bond matrix.
-        calculateRadialBondMatrix();
+        radialBondMatrix.reset();
 
         radialBondsChanged = true;
       },
@@ -2938,11 +2950,21 @@ define(function (require, exports) {
         engine.setAngularBondProperties(N_angularBonds - 1, props);
       },
 
-      removeAngularBond: function(idx) {
-        var i, prop;
+      removeAngularBond: function(idx, conserveEnergy) {
+        var i, prop, a1, a2, a3, angleDiff;
 
         if (idx >= N_angularBonds) {
           throw new Error("Angular bond " + idx + " doesn't exist, so it can't be removed.");
+        }
+
+        if (conserveEnergy) {
+          a1 = angularBondAtom1Index[idx];
+          a2 = angularBondAtom2Index[idx];
+          a3 = angularBondAtom3Index[idx];
+          angleDiff = angularBondAngle[idx] - math.getAngleBetweenVec(x[a1], y[a1],
+                                                                      x[a2], y[a2],
+                                                                      x[a3], y[a3]);
+          engine.addKEToAtoms(0.5 * angularBondStrength[idx] * angleDiff * angleDiff, a1, a2, a3);
         }
 
         // Shift angular bonds properties and zero last element.
@@ -3905,6 +3927,47 @@ define(function (require, exports) {
         };
       },
 
+
+      // Adds a kinetic energy (defined in eV) to a group of atoms (2 or 3).
+      // Returns false when it's impossible (e.g. it can happen when provided energy is negative
+      // and atoms can't be cooled down more), true othrwise.
+      addKEToAtoms: function(energyChange, a1, a2, a3) {
+        var oldKE = engine.getAtomKineticEnergy(a1) +
+                    engine.getAtomKineticEnergy(a2) +
+                    (a3 !== undefined ? engine.getAtomKineticEnergy(a3) : 0),
+            newKE = oldKE + energyChange,
+            ratio;
+
+        if (newKE <= 0) {
+          // Energy can't be conserved using these 2 (or 3) atoms.
+          return false;
+        }
+        if (oldKE === 0) {
+          vx[a1] = Math.random() * 2 - 1 * 1e-5;
+          vy[a1] = Math.random() * 2 - 1 * 1e-5;
+          oldKE = engine.getAtomKineticEnergy(a1);
+        }
+
+        ratio = Math.sqrt(newKE / oldKE);
+        vx[a1] *= ratio;
+        vy[a1] *= ratio;
+        vx[a2] *= ratio;
+        vy[a2] *= ratio;
+        // TODO: probably we shouldn't store (px, py) at all, but calculate it when needed.
+        px[a1] *= ratio;
+        py[a1] *= ratio;
+        px[a2] *= ratio;
+        py[a2] *= ratio;
+        if (a3 !== undefined) {
+          vx[a3] *= ratio;
+          vy[a3] *= ratio;
+          px[a3] *= ratio;
+          py[a3] *= ratio;
+        }
+        // Energy is conserved.
+        return true;
+      },
+
       /**
         Starting at (x,y), try to find a position which minimizes the potential energy change caused
         by adding at atom of element el.
@@ -4151,6 +4214,7 @@ define(function (require, exports) {
               N_springForces = state.N_springForces;
 
               neighborList.invalidate();
+              radialBondMatrix.reset();
               chargedAtomsList.reset();
             }
           }

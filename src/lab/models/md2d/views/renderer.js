@@ -1,4 +1,4 @@
-/*global $, define: false, d3: false, Image */
+/*global $, define: false, d3: false, AUTHORING: false */
 /*jshint loopfunc: true */
 
 // ------------------------------------------------------------
@@ -13,10 +13,13 @@ define(function(require) {
     benchmark           = require('common/benchmark/benchmark'),
     AtomsRenderer       = require('models/md2d/views/atoms-renderer'),
     BondsRenderer       = require('models/md2d/views/bonds-renderer'),
+    VectorsRenderer     = require('models/md2d/views/vectors-renderer'),
+    VdwLinesRenderer    = require('./vdw-lines-renderer'),
     GeneticRenderer     = require('models/md2d/views/genetic-renderer'),
     wrapSVGText         = require('cs!common/layout/wrap-svg-text'),
     gradients           = require('common/views/gradients'),
-    color               = require('common/views/color');
+    contrastingColor    = require('common/views/color').contrastingColor,
+    ImagesRenderer      = require('./images-renderer');
 
   return function MD2DView(modelView, model) {
     // Public API object to be returned.
@@ -30,6 +33,7 @@ define(function(require) {
       // This array is not garbage-collected so the view can be assured that
       // the latest modelAtoms will be in this array when the view is executing
       modelAtoms,
+      modelElectricField,
       modelElements,
       modelWidth,
       modelHeight,
@@ -49,23 +53,24 @@ define(function(require) {
       belowAtomsViewport = modelView.appendViewport().classed("below-atoms", true),
 
       // "Containers" - G elements used to position layers of the final visualization.
-      fieldVisualization   = belowAtomsViewport.append("g").attr("class", "field-visualization"),
       shapeContainerBelow  = belowAtomsViewport.append("g").attr("class", "shape-container-below"),
-      imageContainerBelow  = belowAtomsViewport.append("g").attr("class", "image-container-below"),
+      imageContainerBelow  = belowAtomsViewport.append("g").attr("class", "image-container image-container-below"),
       textContainerBelow   = belowAtomsViewport.append("g").attr("class", "text-container-below"),
-      VDWLinesContainer    = belowAtomsViewport.append("g").attr("class", "vdw-lines-container"),
 
       // TODO: remove it, as well as legacy code responsible for SVG atoms rendering.
       atomsViewport  = modelView.appendViewport().classed("atoms", true),
       atomsContainer = atomsViewport.append("g").attr("class", "atoms-container"),
 
+      vectorsBelowPixi = modelView.appendPixiViewport(),
+      vdwLinesPixi = modelView.appendPixiViewport(),
       bondsPixi = modelView.appendPixiViewport(),
-      atomsPixi = modelView.appendPixiViewport(true),
+      atomsPixi = modelView.appendPixiViewport(),
+      vectorsAbovePixi = modelView.appendPixiViewport(),
 
       aboveAtomsViewport = modelView.appendViewport().classed("above-atoms", true),
       shapeContainerTop  = aboveAtomsViewport.append("g").attr("class", "shape-container-top"),
       lineContainerTop   = aboveAtomsViewport.append("g").attr("class", "line-container-top"),
-      imageContainerTop  = aboveAtomsViewport.append("g").attr("class", "image-container-top"),
+      imageContainerTop  = aboveAtomsViewport.append("g").attr("class", "image-container image-container-top"),
       textContainerTop   = aboveAtomsViewport.append("g").attr("class", "text-container-top"),
 
       iconContainer = modelView.foregroundContainer.append("g").attr("class", "icon-container"),
@@ -74,28 +79,61 @@ define(function(require) {
       // TODO: try to create new renderers in separate files for clarity and easier testing.
       atomsRenderer = new AtomsRenderer(modelView, model, atomsPixi.pixiContainer, atomsPixi.canvas),
       bondsRenderer = new BondsRenderer(modelView, model, bondsPixi.pixiContainer, atomsRenderer),
+      vdwLinesRenderer = new VdwLinesRenderer(modelView, model, vdwLinesPixi.pixiContainer),
+      velocityVectorsRenderer = new VectorsRenderer(vectorsAbovePixi.pixiContainer, {
+        get show() { return model.get("showVelocityVectors"); },
+        get length() { return model.get("velocityVectors").length; },
+        get width() { return model.get("velocityVectors").width; },
+        get color() { return model.get("velocityVectors").color; },
+        get dirOnly() { return false; },
+        get count() { return modelAtoms.length; },
+        x: function (i) { return modelAtoms[i].x; },
+        y: function (i) { return modelAtoms[i].y; },
+        vx: function (i) { return modelAtoms[i].vx * 100; },
+        vy: function (i) { return modelAtoms[i].vy * 100; },
+        m2px: modelView.model2canvas,
+        m2pxInv: modelView.model2canvasInv
+      }),
+      forceVectorsRenderer = new VectorsRenderer(vectorsAbovePixi.pixiContainer, {
+        get show() { return model.get("showForceVectors"); },
+        get length() { return model.get("forceVectors").length; },
+        get width() { return model.get("forceVectors").width; },
+        get color() { return model.get("forceVectors").color; },
+        get dirOnly() { return model.get("forceVectorsDirectionOnly"); },
+        get count() { return modelAtoms.length; },
+        x: function (i) { return modelAtoms[i].x; },
+        y: function (i) { return modelAtoms[i].y; },
+        vx: function (i) { var a = modelAtoms[i]; return a.ax * a.mass * 100; },
+        vy: function (i) { var a = modelAtoms[i]; return a.ay * a.mass * 100; },
+        m2px: modelView.model2canvas,
+        m2pxInv: modelView.model2canvasInv
+      }),
+      electricFieldRenderer = new VectorsRenderer(vectorsBelowPixi.pixiContainer, {
+        get show() { return model.get("showElectricField"); },
+        get length() { return Math.sqrt(3 * model.get("width") / model.get("electricFieldDensity")); },
+        get width() { return 0.01; },
+        get color() {
+          var c = model.get("electricFieldColor");
+          return c !== "auto" ? c : contrastingColor(model.get("backgroundColor"));
+        },
+        get dirOnly() { return true; },
+        get count() { return modelElectricField.length; },
+        x: function (i) { return modelElectricField[i].x; },
+        y: function (i) { return modelElectricField[i].y; },
+        vx: function (i) { return modelElectricField[i].fx; },
+        vy: function (i) { return modelElectricField[i].fy; },
+        alpha: function (i) {
+          var d = modelElectricField[i];
+          return Math.min(1, Math.pow(d.fx * d.fx + d.fy * d.fy, 0.2) * 0.3);
+        },
+        m2px: modelView.model2canvas,
+        m2pxInv: modelView.model2canvasInv
+      }),
+      imagesRenderer = new ImagesRenderer(modelView, model),
       geneticRenderer,
 
-      // Set of gradients used for Kinetic Energy Shading.
-      gradientNameForKELevel = [],
-      // Number of gradients used for Kinetic Energy Shading.
-      KE_SHADING_STEPS = 25,
-      // Set of gradients used for Charge Energy Shading.
-      gradientNameForPositiveChargeLevel = [],
-      gradientNameForNegativeChargeLevel = [],
-      // Number of gradients used for Charge Shading (for both positive and negative charges).
-      CHARGE_SHADING_STEPS = 25,
-
-      atomTooltipOn = false,
-
-      atomToolTip, atomToolTipPre,
-
+      arrowHeadsCache,
       fontSizeInPixels,
-
-      modelTimeFormatter = d3.format("5.1f"),
-      timePrefix = "",
-      timeSuffix = "",
-
       obstacle,
       obstacles,
       mockObstaclesArray = [],
@@ -107,38 +145,19 @@ define(function(require) {
       lines,
       lineTop,
       mockLinesTop = [],
-      vdwPairs = [],
-      vdwLines,
       keShadingMode,
       useQuantumDynamics,
-      drawVdwLines,
-      drawVelocityVectors,
-      drawElectricForceField,
-      velocityVectorColor,
-      velocityVectorWidth,
-      velocityVectorLength,
-      drawForceVectors,
       forceVectorColor,
       forceVectorWidth,
-      forceVectorLength,
-      forceVectorsDirectionOnly,
-      velVector,
-      forceVector,
-      efVector,
-      imageProp,
-      imageMapping,
-      modelImagePath,
-      imageSizes = [],
       textBoxes,
-      imagePath,
+      // Flag indicating whether there are some movable text boxes or not (e.g. attached to an atom
+      // or obstacle). Used for optimization.
+      onlyStaticTextBoxes = true,
       drawAtomTrace,
       atomTraceId,
       atomTraceColor,
       atomTrace,
       atomTracePath,
-
-      VELOCITY_STR = "velocity",
-      FORCE_STR = "force",
 
       browser = benchmark.what_browser(),
 
@@ -150,161 +169,37 @@ define(function(require) {
       // see https://connect.microsoft.com/IE/feedback/details/781964/
       hideLineMarkers = browser.browser === "MSIE" && Number(browser.version) >= 10;
 
-
-    function modelTimeLabel() {
-      return timePrefix + modelTimeFormatter(model.get('displayTime')) + timeSuffix;
-    }
-
-    // Pass in the signed 24-bit Integer used for Java MW elementColors
-    // See: https://github.com/mbostock/d3/wiki/Colors
-
-    function createElementColorGradient(id, signedInt, mainContainer) {
-      var colorstr = (signedInt + Math.pow(2, 24)).toString(16),
-        color,
-        medColor,
-        lightColor,
-        darkColor,
-        i;
-
-      for (i = colorstr.length; i < 6; i++) {
-        colorstr = String(0) + colorstr;
-      }
-      color = d3.rgb("#" + colorstr);
-      medColor = color.toString();
-      lightColor = color.brighter(1).toString();
-      darkColor = color.darker(1).toString();
-      return gradients.createRadialGradient(id, lightColor, medColor, darkColor, mainContainer);
-    }
-
-    /**
-     * Setups set of gradient which can be changed by the user.
-     * They should be recreated during each reset / repaint operation.
-     * @private
-     */
-
-    function setupDynamicGradients() {
-      var i, color, lightColor, medColor, darkColor;
-
-      for (i = 0; i < 4; i++) {
-        // Use names defined in gradientNameForElement array!
-        createElementColorGradient("elem" + i + "-grad", modelElements.color[i], atomsContainer);
-      }
-
-      // "Marked" particle gradient.
-      medColor = model.get("markColor");
-      // Mark color defined in JSON defines medium color of a gradient.
-      color = d3.rgb(medColor);
-      lightColor = color.brighter(1).toString();
-      darkColor = color.darker(1).toString();
-      gradients.createRadialGradient("mark-grad", lightColor, medColor, darkColor, atomsContainer);
-    }
-
-    /**
-     * Creates set of gradient which cannot be changed, they are constant
-     * for each possible model. So, it is enough to setup them just once.
-     * @private
-     */
-
-    function createImmutableGradients() {
-      // Scale used for Kinetic Energy Shading gradients.
-      var medColorScale = d3.scale.linear()
-        .interpolate(d3.interpolateRgb)
-        .range(["#F2F2F2", "#FF8080"]),
-        // Scale used for Kinetic Energy Shading gradients.
-        darkColorScale = d3.scale.linear()
-          .interpolate(d3.interpolateRgb)
-          .range(["#A4A4A4", "#FF2020"]),
-        gradientName,
-        gradientUrl,
-        KELevel,
-        i;
-
-      // Kinetic Energy Shading gradients
-      for (i = 0; i < KE_SHADING_STEPS; i++) {
-        gradientName = "ke-shading-" + i;
-        KELevel = i / KE_SHADING_STEPS;
-        gradientUrl = gradients.createRadialGradient(gradientName, "#FFFFFF", medColorScale(KELevel),
-          darkColorScale(KELevel), atomsContainer);
-        gradientNameForKELevel[i] = gradientUrl;
-      }
-
-      // Scales used for Charge Shading gradients.
-      // Originally Positive:(ffefff,9abeff,767fbf) and Negative:(dfffff,fdadad,e95e5e)
-
-      gradients.createRadialGradient("neutral-grad", "#FFFFFF", "#f2f2f2", "#A4A4A4", atomsContainer);
-
-      var posLightColorScale = d3.scale.linear()
-        .interpolate(d3.interpolateRgb)
-        .range(["#FFFFFF", "#ffefff"]),
-        posMedColorScale = d3.scale.linear()
-          .interpolate(d3.interpolateRgb)
-          .range(["#f2f2f2", "#9090FF"]),
-        posDarkColorScale = d3.scale.linear()
-          .interpolate(d3.interpolateRgb)
-          .range(["#A4A4A4", "#3030FF"]),
-        negLightColorScale = d3.scale.linear()
-          .interpolate(d3.interpolateRgb)
-          .range(["#FFFFFF", "#dfffff"]),
-        negMedColorScale = d3.scale.linear()
-          .interpolate(d3.interpolateRgb)
-          .range(["#f2f2f2", "#FF8080"]),
-        negDarkColorScale = d3.scale.linear()
-          .interpolate(d3.interpolateRgb)
-          .range(["#A4A4A4", "#FF2020"]),
-        ChargeLevel;
-
-      // Charge Shading gradients
-      for (i = 1; i < CHARGE_SHADING_STEPS; i++) {
-        gradientName = "pos-charge-shading-" + i;
-        ChargeLevel = i / CHARGE_SHADING_STEPS;
-        gradientUrl = gradients.createRadialGradient(gradientName,
-          posLightColorScale(ChargeLevel),
-          posMedColorScale(ChargeLevel),
-          posDarkColorScale(ChargeLevel), atomsContainer);
-        gradientNameForPositiveChargeLevel[i] = gradientUrl;
-
-        gradientName = "neg-charge-shading-" + i;
-        ChargeLevel = i / CHARGE_SHADING_STEPS;
-        gradientUrl = gradients.createRadialGradient(gradientName,
-          negLightColorScale(ChargeLevel),
-          negMedColorScale(ChargeLevel),
-          negDarkColorScale(ChargeLevel), atomsContainer);
-        gradientNameForNegativeChargeLevel[i] = gradientUrl;
-      }
-
-      // Colored gradients, used for amino acids.
-      gradients.createRadialGradient("green-grad", "#dfffef", "#75a643", "#2a7216", atomsContainer);
-      gradients.createRadialGradient("orange-grad", "#F0E6D1", "#E0A21B", "#AD7F1C", atomsContainer);
-    }
-
     function createCustomArrowHead(i, path, start) {
       if(!path || path === "none"){
         return "none";
       }
-      // Create marker defs for _each_ path in order to account for differing path colors and visibility
-      var defs,
-        id = "Arrowhead-path" + i + '-' + path.toLowerCase().replace(/[^a-z0-9]/g,'') + (start ? "-start" : ""),
-        arrowHead;
-      defs = atomsContainer.select("defs");
-      if (defs.empty()) {
-        defs = atomsContainer.append("defs");
+
+      var id = "arrowhead-path" + path.toLowerCase().replace(/[^a-z0-9]/g, '') +
+               (start ? "start" : "") + lines.lineColor[i].toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      if (!arrowHeadsCache[id]) {
+        var defs, arrowHead;
+        defs = atomsContainer.select("defs");
+        if (defs.empty()) {
+          defs = atomsContainer.append("defs");
+        }
+        arrowHead = defs.select("#" + id);
+        arrowHead = atomsContainer.append("marker")
+          .attr("id", id)
+          .attr("class", "custom-arrow-head")
+          .attr("viewBox", "0 0 10 10")
+          .attr("refX", "5")
+          .attr("refY", "5")
+          .attr("markerUnits", "strokeWidth")
+          .attr("markerWidth", "4")
+          .attr("markerHeight", "4")
+          .attr("orient", "auto");
+        arrowHead.append("path")
+          .attr("d", path)
+          .attr("fill", lines.lineColor[i])
+          .attr("transform", start ? "translate(10, 10) rotate(180)" : "");
+        arrowHeadsCache[id] = true;
       }
-      arrowHead = defs.select("#" + id);
-      // Must rerender markers to account for changes in line properties (e.g. visibility, color)
-      arrowHead.remove();
-      arrowHead = defs.append("marker")
-        .attr("id", id)
-        .attr("viewBox", "0 0 10 10")
-        .attr("refX", "5")
-        .attr("refY", "5")
-        .attr("markerUnits", "strokeWidth")
-        .attr("markerWidth", "4")
-        .attr("markerHeight", "4")
-        .attr("orient", "auto");
-      arrowHead.append("path")
-        .attr("d", path)
-        .attr("fill",lines.visible[i] ? lines.lineColor[i] : "transparent")
-        .attr("transform", start ? "translate(10, 10) rotate(180)" : "");
       return "url(#" + id + ")";
     }
 
@@ -451,18 +346,6 @@ define(function(require) {
       }
     }
 
-    function vectorEnter(vector, pathFunc, widthFunc, color, name) {
-      vector.enter().append("path")
-        .attr({
-          "class": "vector-" + name,
-          "marker-end": hideLineMarkers ? "" : "url(#Triangle-" + name + ")",
-          "d": pathFunc,
-          "stroke-width": widthFunc,
-          "stroke": color,
-          "fill": "none"
-        });
-    }
-
     function atomTraceEnter() {
       atomTrace.enter().append("path")
         .attr({
@@ -573,7 +456,7 @@ define(function(require) {
         // Finally, set common attributes and stying for both vertical and horizontal forces.
         obstacleGroupEl.selectAll("path.obstacle-force-hor, path.obstacle-force-vert")
           .attr({
-            "marker-end": hideLineMarkers ? "" : "url(#Triangle-" + FORCE_STR + ")",
+            "marker-end": hideLineMarkers ? "" : "url(#Triangle-force)",
             "stroke-width": model2px(forceVectorWidth),
             "stroke": forceVectorColor,
             "fill": "none"
@@ -643,158 +526,6 @@ define(function(require) {
       }
     }
 
-    function lineEnter() {
-      lineTop.enter().append("line").attr({
-        "class": "line",
-        "x1": function(d, i) {
-          return model2px(lines.x1[i]);
-        },
-        "y1": function(d, i) {
-          return model2pxInv(lines.y1[i]);
-        },
-        "x2": function(d, i) {
-          return model2px(lines.x2[i]);
-        },
-        "y2": function(d, i) {
-          return model2pxInv(lines.y2[i]);
-        },
-        "stroke-width": function(d, i) {
-          return lines.lineWeight[i];
-        },
-        "stroke-dasharray": function(d, i) {
-          return lines.lineDashes[i];
-        },
-        "stroke": function(d, i) {
-          return lines.visible[i] ? lines.lineColor[i] : "transparent";
-        },
-        "marker-start": function(d,i){
-          return createCustomArrowHead(i, lines.beginStyle[i], true);
-        },
-        "marker-end": function(d,i){
-          return createCustomArrowHead(i, lines.endStyle[i]);
-        }
-      });
-    }
-
-    function vdwLinesEnter() {
-      var strokeWidth = model2px(0.02),
-        strokeDasharray = model2px(0.03) + " " + model2px(0.02);
-      // update existing lines
-      vdwLines.attr({
-        "x1": function(d) {
-          return model2px(modelAtoms[d[0]].x);
-        },
-        "y1": function(d) {
-          return model2pxInv(modelAtoms[d[0]].y);
-        },
-        "x2": function(d) {
-          return model2px(modelAtoms[d[1]].x);
-        },
-        "y2": function(d) {
-          return model2pxInv(modelAtoms[d[1]].y);
-        }
-      });
-
-      // append new lines
-      vdwLines.enter().append('line')
-        .attr({
-          "class": "attractionforce",
-          "x1": function(d) {
-            return model2px(modelAtoms[d[0]].x);
-          },
-          "y1": function(d) {
-            return model2pxInv(modelAtoms[d[0]].y);
-          },
-          "x2": function(d) {
-            return model2px(modelAtoms[d[1]].x);
-          },
-          "y2": function(d) {
-            return model2pxInv(modelAtoms[d[1]].y);
-          }
-        })
-        .style({
-          "stroke-width": strokeWidth,
-          "stroke-dasharray": strokeDasharray
-        });
-
-      // remove old lines
-      vdwLines.exit().remove();
-    }
-
-    function getImagePath(imgProp) {
-      return imagePath + (imageMapping[imgProp.imageUri] || imgProp.imageUri);
-    }
-
-    function drawImageAttachment() {
-      var img = [],
-        imglayer,
-        container,
-        i,
-        positionOrder,
-        positionOrderTop = [],
-        positionOrderBelow = [];
-
-      imageContainerTop.selectAll("image").remove();
-      imageContainerBelow.selectAll("image").remove();
-
-      if (!imageProp) return;
-
-      for (i = 0; i < imageProp.length; i++) {
-        img[i] = new Image();
-        img[i].src = getImagePath(imageProp[i]);
-        img[i].onload = (function(i) {
-          return function() {
-            imglayer = imageProp[i].imageLayer;
-            positionOrder = imglayer === 1 ? positionOrderTop : positionOrderBelow;
-            positionOrder.push({
-              i: i,
-              zOrder: ( !! imageProp[i].imageLayerPosition) ? imageProp[i].imageLayerPosition : 0
-            });
-            positionOrder.sort(function(a, b) {
-              return d3.ascending(a["zOrder"], b["zOrder"]);
-            });
-            // In Classic MW model size is defined in 0.1A.
-            // Model unit (0.1A) - pixel ratio is always 1. The same applies
-            // to images. We can assume that their pixel dimensions are
-            // in 0.1A also. So convert them to nm (* 0.01).
-            imageSizes[i] = [0.01 * img[i].width, 0.01 * img[i].height];
-            container = imglayer === 1 ? imageContainerTop : imageContainerBelow;
-            container.selectAll("image").remove();
-            container.selectAll("image")
-              .data(positionOrder, function(d) {
-                return d.i;
-              })
-              .enter().append("image")
-              .attr("x", function(d) {
-                return getImageCoords(d.i)[0];
-              })
-              .attr("y", function(d) {
-                return getImageCoords(d.i)[1];
-              })
-              .attr("class", function(d) {
-                return "image_attach" + d.i;
-              })
-              .attr("xlink:href", function(d) {
-                return img[d.i].src;
-              })
-              .attr("width", function(d) {
-                return model2px(imageSizes[d.i][0]);
-              })
-              .attr("height", function(d) {
-                return model2px(imageSizes[d.i][1]);
-              })
-              .attr("pointer-events", function(d) {
-                // Make images transparent for mouse events when they are attached to atoms or
-                // obstacles. In such case interactivity of image will be defined by the
-                // interactivity of the host object.
-                if (imageProp[d.i].imageHostType) return "none";
-                return "auto";
-              });
-          };
-        })(i);
-      }
-    }
-
     function getTextBoxCoords(d) {
       var x, y, hostX, hostY, textX, textY, frameX, frameY, calloutX, calloutY,
         pixelScale = model2px(d.fontSize);
@@ -803,6 +534,9 @@ define(function(require) {
       y = d.y;
 
       if (d.hostType) {
+        // Mark that at least one text box has a host - it means that we have to update text boxes
+        // each tick. Otherwise, we can follow a fast path and don't update them after creation.
+        onlyStaticTextBoxes = false;
         if (d.hostType === "Atom") {
           hostX = modelAtoms[d.hostIndex].x;
           hostY = modelAtoms[d.hostIndex].y;
@@ -929,8 +663,10 @@ define(function(require) {
 
     function drawTextBoxes() {
       var size, layers, appendTextBoxes;
-      // Workaround for a rendering bug in Chrome on OS X; see http://crbug.com/309740
-      var shouldRoundTextBoxStrokeWidth = browser.browser === 'Chrome' && browser.oscpu.indexOf('OS X') > 0;
+      // Workaround for a rendering bug in Chrome on OS X and Windows (but not Linux or Android);
+      // see http://crbug.com/309740
+      var shouldRoundTextBoxStrokeWidth =
+        browser.browser === 'Chrome' && !!browser.oscpu.match(/Windows|Mac OS X/);
 
       textBoxes = model.get('textBoxes');
 
@@ -1208,106 +944,45 @@ define(function(require) {
 
     function setupLines() {
       lines = model.get_lines();
-      lineContainerTop.selectAll(".line").remove();
+      mockLinesTop.length = lines.x1.length;
+      lineTop = lineContainerTop.selectAll(".line").data(mockLinesTop);
+      lineTop.exit().remove();
       if (lines) {
-        mockLinesTop.length = lines.x1.length;
-        lineTop = lineContainerTop.selectAll(".line").data(mockLinesTop);
-        lineEnter();
-      }
-    }
-
-    function setupVdwPairs() {
-      VDWLinesContainer.selectAll("line.attractionforce").remove();
-      updateVdwPairsArray();
-      drawVdwLines = model.get("showVDWLines");
-      if (drawVdwLines) {
-        vdwLines = VDWLinesContainer.selectAll("line.attractionforce").data(vdwPairs);
-        vdwLinesEnter();
-      }
-    }
-
-    // The vdw hash returned by md2d consists of typed arrays of length N*N-1/2
-    // To make these d3-friendly we turn them into an array of atom pairs, only
-    // as long as we need.
-
-    function updateVdwPairsArray() {
-      var vdwHash = model.get_vdw_pairs();
-      for (var i = 0; i < vdwHash.count; i++) {
-        vdwPairs[i] = [vdwHash.atom1[i], vdwHash.atom2[i]];
-      }
-      // if vdwPairs was longer at the previous tick, trim the end
-      vdwPairs.splice(vdwHash.count);
-    }
-
-    function setupVectors() {
-      atomsContainer.selectAll("path.vector-" + VELOCITY_STR).remove();
-      atomsContainer.selectAll("path.vector-" + FORCE_STR).remove();
-
-      drawVelocityVectors = model.get("showVelocityVectors");
-      drawForceVectors = model.get("showForceVectors");
-      if (drawVelocityVectors) {
-        velVector = atomsContainer.selectAll("path.vector-" + VELOCITY_STR).data(modelAtoms);
-        vectorEnter(velVector, getVelVectorPath, getVelVectorWidth, velocityVectorColor, VELOCITY_STR);
-      }
-      if (drawForceVectors) {
-        forceVector = atomsContainer.selectAll("path.vector-" + FORCE_STR).data(modelAtoms);
-        vectorEnter(forceVector, getForceVectorPath, getForceVectorWidth, forceVectorColor, FORCE_STR);
-      }
-    }
-
-    function setupElectricField() {
-      var density = model.get("electricFieldDensity"),
-        show = model.get("showElectricField"),
-        col, size;
-      drawElectricForceField = show && density > 0;
-      // Do full enter-update-remove cycle to reuse DOM elements.
-      efVector = fieldVisualization.selectAll(".vector-electric-field")
-        .data(show ? model.getElectricField() : []);
-      efVector.exit().remove();
-      if (drawElectricForceField) {
-        // Enter.
-        efVector.enter()
-          .append("g")
-          .attr("class", "vector-electric-field")
-          .append("g")
-          .attr("class", "rot-g")
-          .append("svg")
-          .attr("viewBox", "-5 -12 10 12")
-          .append("path")
-          .attr("d", "M0,0 L0,-8 L1,-8 L0,-10 L-1,-8, L0,-8");
-        // Update.
-        col = model.get("electricFieldColor");
-        if (col === "auto")
-          col = color.contrastingColor(model.get("backgroundColor"));
-
-        efVector
-          .attr("transform", function(d) {
-            return "translate(" + model2px(d.x) + ", " + model2pxInv(d.y) + ")";
-          })
-          .style("fill", col)
-          .style("stroke", col);
-        // Size update.
-        size = Math.sqrt(30 / density);
-        efVector.select("svg")
-          .attr("x", (-0.5 * size) + "em")
-          .attr("y", (-size) + "em")
-          .attr("width", size + "em")
-          .attr("height", size + "em");
-        // Cache selection + update rotation.
-        efVector = efVector.select(".rot-g");
-        updateElectricForceField();
-      }
-    }
-
-    function updateElectricForceField() {
-      var rad2deg = 180 / Math.PI;
-      efVector
-        .attr("transform", function(d) {
-          return "rotate(" + (Math.atan2(d.fx, d.fy) * rad2deg) + ")";
-        })
-        .style("opacity", function(d) {
-          return Math.min(1, Math.pow(d.fx * d.fx + d.fy * d.fy, 0.2) * 0.3);
+        lineTop.enter().append("line");
+        lineTop.attr({
+          "class": "line",
+          "x1": function(d, i) {
+            return model2px(lines.x1[i]);
+          },
+          "y1": function(d, i) {
+            return model2pxInv(lines.y1[i]);
+          },
+          "x2": function(d, i) {
+            return model2px(lines.x2[i]);
+          },
+          "y2": function(d, i) {
+            return model2pxInv(lines.y2[i]);
+          },
+          "stroke-width": function(d, i) {
+            return lines.lineWeight[i];
+          },
+          "stroke-dasharray": function(d, i) {
+            return lines.lineDashes[i];
+          },
+          "stroke": function(d, i) {
+            return lines.lineColor[i];
+          },
+          "marker-start": function(d, i){
+            return createCustomArrowHead(i, lines.beginStyle[i], true);
+          },
+          "marker-end": function(d, i){
+            return createCustomArrowHead(i, lines.endStyle[i]);
+          },
+          "visibility": function(d, i) {
+            return lines.visible[i] ? "visible" : "hidden";
+          }
         });
+      }
     }
 
     function setupAtomTrace() {
@@ -1320,105 +995,6 @@ define(function(require) {
         atomTrace = atomsContainer.selectAll("path.atomTrace").data([modelAtoms[atomTraceId]]);
         atomTraceEnter();
       }
-    }
-
-    function updateVdwPairs() {
-      // Get new set of pairs from model.
-      updateVdwPairsArray();
-
-      vdwLines = VDWLinesContainer.selectAll("line.attractionforce").data(vdwPairs);
-      vdwLinesEnter();
-    }
-
-    function moleculeMouseOver(d, i) {
-      if (model.get("enableAtomTooltips") && (atomTooltipOn === false)) {
-        renderAtomTooltip(i);
-      }
-    }
-
-    function moleculeMouseDown(d, i) {
-      modelView.node.focus();
-      if (model.get("enableAtomTooltips")) {
-        if (atomTooltipOn !== false) {
-          atomToolTip.style("opacity", 1e-6);
-          atomToolTip.style("display", "none");
-          atomTooltipOn = false;
-        } else {
-          if (d3.event.shiftKey) {
-            atomTooltipOn = i;
-          } else {
-            atomTooltipOn = false;
-          }
-          renderAtomTooltip(i);
-        }
-      }
-    }
-
-    function renderAtomTooltip(i) {
-      var pos = modelView.pos(),
-        left = pos.left + model2px(modelAtoms[i].x),
-        top = pos.top + model2pxInv(modelAtoms[i].y);
-
-      atomToolTip
-        .style("opacity", 1.0)
-        .style("display", "inline")
-        .style("background", "rgba(100%, 100%, 100%, 0.7)")
-        .style("left", left + "px")
-        .style("top", top + "px")
-        .style("zIndex", 100)
-        .transition().duration(250);
-
-      atomToolTipPre.text(
-        "atom: " + i + "\n" +
-        "time: " + modelTimeLabel() + "\n" +
-        "speed: " + d3.format("+6.3e")(modelAtoms[i].speed) + "\n" +
-        "vx:    " + d3.format("+6.3e")(modelAtoms[i].vx) + "\n" +
-        "vy:    " + d3.format("+6.3e")(modelAtoms[i].vy) + "\n" +
-        "ax:    " + d3.format("+6.3e")(modelAtoms[i].ax) + "\n" +
-        "ay:    " + d3.format("+6.3e")(modelAtoms[i].ay) + "\n"
-      );
-    }
-
-    function moleculeMouseOut() {
-      if (!atomTooltipOn && atomTooltipOn !== 0) {
-        atomToolTip.style("opacity", 1e-6).style("zIndex" - 1);
-      }
-    }
-
-    function getVelVectorPath(d) {
-      var x_pos = model2px(d.x),
-        y_pos = model2pxInv(d.y),
-        path = "M " + x_pos + "," + y_pos,
-        scale = velocityVectorLength * 100;
-      return path + " L " + (x_pos + model2px(d.vx * scale)) + "," + (y_pos - model2px(d.vy * scale));
-    }
-
-    function getForceVectorPath(d) {
-      var xPos = model2px(d.x),
-        yPos = model2pxInv(d.y),
-        mass = d.mass,
-        scale = forceVectorLength * 100 * mass;
-      if (forceVectorsDirectionOnly) {
-        mass *= mass;
-        scale /= Math.sqrt(d.ax * d.ax * mass + d.ay * d.ay * mass) * 1e3 || 1;
-      }
-      return "M" + xPos + "," + yPos +
-        "L" + (xPos + model2px(d.ax * scale)) + "," + (yPos - model2px(d.ay * scale));
-    }
-
-    function getVelVectorWidth(d) {
-      return Math.abs(d.vx) + Math.abs(d.vy) > 1e-6 ? model2px(velocityVectorWidth) : 0;
-    }
-
-    function getForceVectorWidth(d) {
-      return Math.abs(d.ax) + Math.abs(d.ay) > 1e-8 ? model2px(forceVectorWidth) : 0;
-    }
-
-    function updateVectors(vector, pathFunc, widthFunc) {
-      vector.attr({
-        "d": pathFunc,
-        "stroke-width": widthFunc
-      });
     }
 
     function getAtomTracePath(d) {
@@ -1450,42 +1026,6 @@ define(function(require) {
       });
     }
 
-    function getImageCoords(i) {
-      var props = imageProp[i],
-        x, y, img_width, img_height;
-      if (props.imageHostType) {
-        if (props.imageHostType === "Atom") {
-          x = modelAtoms[props.imageHostIndex].x;
-          y = modelAtoms[props.imageHostIndex].y;
-        } else if (props.imageHostType === "RectangularObstacle") {
-          x = obstacles.x[props.imageHostIndex] + (obstacles.width[props.imageHostIndex] / 2);
-          y = obstacles.y[props.imageHostIndex] + (obstacles.height[props.imageHostIndex] / 2);
-        }
-        img_width = imageSizes[i][0];
-        img_height = imageSizes[i][1];
-        x = x - img_width / 2;
-        y = y + img_height / 2;
-      } else {
-        x = props.imageX;
-        y = props.imageY;
-      }
-      return [model2px(x), model2pxInv(y)];
-    }
-
-    function updateImageAttachment() {
-      var numImages, imglayer, container, coords, i;
-      numImages = imageProp.length;
-      for (i = 0; i < numImages; i++) {
-        if (!imageSizes || !imageSizes[i]) continue;
-        coords = getImageCoords(i);
-        imglayer = imageProp[i].imageLayer;
-        container = imglayer === 1 ? imageContainerTop : imageContainerBelow;
-        container.selectAll("image.image_attach" + i)
-          .attr("x", coords[0])
-          .attr("y", coords[1]);
-      }
-    }
-
     function textDrag(d) {
       var dragDx = model2px.invert(d3.event.dx),
         dragDy = model2px.invert(d3.event.dy);
@@ -1497,16 +1037,6 @@ define(function(require) {
         d.x = d.x + dragDx;
         d.y = d.y - dragDy;
         updateTextBoxes();
-      }
-    }
-
-    function setupToolTips() {
-      var mc = d3.select("#model-container");
-      if (atomToolTip === undefined && !mc.empty()) {
-        atomToolTip = mc.append("div")
-          .attr("class", "tooltip")
-          .style("opacity", 1e-6);
-        atomToolTipPre = atomToolTip.append("pre");
       }
     }
 
@@ -1532,40 +1062,25 @@ define(function(require) {
     }
 
     function setupMiscOptions() {
-      // Note that vector options are specified in a very untypical way. They are nested objects.
-      velocityVectorColor = model.get("velocityVectors").color;
-      velocityVectorWidth = model.get("velocityVectors").width;
-      velocityVectorLength = model.get("velocityVectors").length;
-
+      // These options are still used by the obstacle force arrows.
       forceVectorColor = model.get("forceVectors").color;
       forceVectorWidth = model.get("forceVectors").width;
-      forceVectorLength = model.get("forceVectors").length;
+      createVectorArrowHeads(forceVectorColor, "force");
 
-      forceVectorsDirectionOnly = model.get("forceVectorsDirectionOnly");
-
-      createVectorArrowHeads(velocityVectorColor, VELOCITY_STR);
-      createVectorArrowHeads(forceVectorColor, FORCE_STR);
+      // Reset custom arrow heads.
+      arrowHeadsCache = {};
+      atomsContainer.selectAll(".custom-arrow-head").remove();
 
       atomTraceColor = model.get("atomTraceColor");
     }
 
     function setupRendererOptions() {
-      imageProp = model.get("images");
-      imageMapping = model.get("imageMapping");
-      modelImagePath = model.get('imagePath');
-      if (modelImagePath) {
-        imagePath = labConfig.actualRoot + modelImagePath;
-      } else if (modelView.url) {
-        imagePath = labConfig.actualRoot + modelView.url.slice(0, modelView.url.lastIndexOf("/") + 1);
-      }
-
       useQuantumDynamics = model.properties.useQuantumDynamics;
       if (useQuantumDynamics) {
         createExcitationGlow();
       }
 
       createSymbolImages();
-      createImmutableGradients();
 
       // Initialize renderers.
       geneticRenderer = new GeneticRenderer(modelView, model);
@@ -1630,14 +1145,13 @@ define(function(require) {
     //
 
     function setup() {
-      timeSuffix = " (" + model.getPropertyDescription('displayTime').getUnitAbbreviation() + ")";
-
       model2px = modelView.model2px;
       model2pxInv = modelView.model2pxInv;
 
       fontSizeInPixels = modelView.getFontSizeInPixels();
 
       modelAtoms = model.getAtoms();
+      modelElectricField = model.getElectricField();
       modelElements = model.get_elements();
       modelWidth = model.get('width');
       modelHeight = model.get('height');
@@ -1657,24 +1171,47 @@ define(function(require) {
         };
       }
 
+      function setupElectricField() {
+        electricFieldRenderer.setup();
+        modelView.renderCanvas();
+      }
+
       // Redraw container each time when some visual-related property is changed.
       model.addPropertiesListener([
           "chargeShading", "showChargeSymbols", "useThreeLetterCode",
-          "showVDWLines", "VDWLinesCutoff",
-          "showVelocityVectors", "showForceVectors",
           "showAtomTrace", "atomTraceId", "aminoAcidColorScheme",
           "backgroundColor", "markColor", "forceVectorsDirectionOnly"
         ],
         redrawClickableObjects(repaint));
+
+      // Vectors:
       model.addPropertiesListener(["electricFieldDensity", "showElectricField", "electricFieldColor"],
         setupElectricField);
+      model.addPropertiesListener(["showVelocityVectors", "velocityVectors"], function () {
+        velocityVectorsRenderer.setup();
+        modelView.renderCanvas();
+      });
+      model.addPropertiesListener(["showForceVectors", "forceVectors", "forceVectorsDirectionOnly"], function () {
+        forceVectorsRenderer.setup();
+        modelView.renderCanvas();
+      });
+      model.addPropertiesListener(["showVDWLines", "VDWLinesCutoff"], function () {
+        vdwLinesRenderer.setup();
+        modelView.renderCanvas();
+      });
 
       model.on('addAtom', redrawClickableObjects(function () {
         atomsRenderer.setup();
+        velocityVectorsRenderer.setup();
+        forceVectorsRenderer.setup();
+        electricFieldRenderer.update();
         modelView.renderCanvas();
       }));
       model.on('removeAtom', redrawClickableObjects(function () {
         atomsRenderer.setup();
+        velocityVectorsRenderer.setup();
+        forceVectorsRenderer.setup();
+        electricFieldRenderer.update();
         modelView.renderCanvas();
       }));
       model.on('addRadialBond', redrawClickableObjects(function () {
@@ -1686,7 +1223,7 @@ define(function(require) {
         modelView.renderCanvas();
       }));
       model.on('textBoxesChanged', redrawClickableObjects(drawTextBoxes));
-      model.on('imagesChanged', redrawClickableObjects(drawImageAttachment));
+      model.on('imagesChanged', redrawClickableObjects(imagesRenderer.setup));
       model.on('addElectricField', setupElectricField);
       model.on('removeElectricField', setupElectricField);
       model.on('changeElectricField', setupElectricField);
@@ -1702,6 +1239,8 @@ define(function(require) {
       model = newModel;
       atomsRenderer.bindModel(newModel);
       bondsRenderer.bindModel(newModel);
+      vdwLinesRenderer.bindModel(newModel);
+      imagesRenderer.bindModel(newModel);
       setup();
     }
 
@@ -1723,20 +1262,19 @@ define(function(require) {
       fontSizeInPixels = modelView.getFontSizeInPixels();
 
       setupMiscOptions();
-      setupDynamicGradients();
       setupObstacles();
-      setupVdwPairs();
       atomsRenderer.setup();
       bondsRenderer.setup();
+      vdwLinesRenderer.setup();
       setupShapes();
       setupLines();
       geneticRenderer.setup();
-      setupVectors();
-      setupElectricField();
+      velocityVectorsRenderer.setup();
+      forceVectorsRenderer.setup();
+      electricFieldRenderer.setup();
       setupAtomTrace();
-      drawImageAttachment();
+      imagesRenderer.setup();
       drawTextBoxes();
-      setupToolTips();
       drawSymbolImages();
       setupFirefoxWarning();
       if (useQuantumDynamics) {
@@ -1768,29 +1306,22 @@ define(function(require) {
         });
       }
 
-      if (drawVdwLines) {
-        updateVdwPairs();
-      }
-
       atomsRenderer.update();
       bondsRenderer.update();
+      vdwLinesRenderer.update();
+      velocityVectorsRenderer.update();
+      forceVectorsRenderer.update();
+      electricFieldRenderer.update();
 
-      if (drawVelocityVectors) {
-        updateVectors(velVector, getVelVectorPath, getVelVectorWidth);
-      }
-      if (drawForceVectors) {
-        updateVectors(forceVector, getForceVectorPath, getForceVectorWidth);
-      }
-      if (drawElectricForceField) {
-        updateElectricForceField();
-      }
       if (drawAtomTrace) {
         updateAtomTrace();
       }
-      if (imageProp && imageProp.length !== 0) {
-        updateImageAttachment();
+      if (model.properties.images && model.properties.images.length !== 0) {
+        imagesRenderer.update();
       }
-      if (textBoxes && textBoxes.length > 0) {
+      if (textBoxes && textBoxes.length > 0 && !onlyStaticTextBoxes) {
+        // Update text boxes properties only when at least one of them is attached to some movable
+        // object like atom or obstacle.
         updateTextBoxes();
       }
       if (useQuantumDynamics) {
@@ -1822,9 +1353,7 @@ define(function(require) {
         }
       },
 
-      bindModel: bindModel,
-      model2px: modelView.model2px,
-      model2pxInv: modelView.model2pxInv
+      bindModel: bindModel
     };
 
     return api;

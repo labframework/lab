@@ -44,6 +44,7 @@ define(function (require) {
         'solar-system':     require('models/solar-system/controllers/controller'),
         'signal-generator': require('models/signal-generator/controller'),
         'sensor':           require('models/sensor/controller'),
+        'dual-sensor':      require('models/dual-sensor/controller'),
         'energy2d':         require('models/energy2d/controllers/controller')
       },
 
@@ -444,17 +445,26 @@ define(function (require) {
       return $interactiveContainer.parent().parent().prop("nodeName") === "BODY";
     }
 
-    function createScriptingAPI() {
+    function createOrUpdateScriptingAPI() {
+      if (scriptingAPI) {
+        // If Scripting API already exists, just bind the new model.
+        scriptingAPI.bindModel(model);
+        // FIXME: this doesn't seem like a necessary step. However, without it md2d-scripting-api
+        // tests fail, but only when all tests are run (e.g. make test-src)! When you run just this
+        // single test everything works (e.g. mocha test/md2d/md2d-scripting-api). It looks like
+        // window.script variable references some old API instance and seems to be related to the
+        // test environment setup. Temporarily put this call here for safety.
+        scriptingAPI.exposeScriptingAPI();
+        return;
+      }
       // Only create scripting API after model is loaded.
-      scriptingAPI = new ScriptingAPI(controller);
-      // Expose API to global namespace (prototyping / testing using the browser console).
-      scriptingAPI.exposeScriptingAPI();
-
+      scriptingAPI = new ScriptingAPI(controller, model);
       // Extend universal Interactive scriptingAPI with optional model-specific scripting API
       if (modelController.ScriptingAPI) {
         scriptingAPI.extend(modelController.ScriptingAPI);
-        scriptingAPI.exposeScriptingAPI();
       }
+      // Expose API to global namespace (prototyping / testing using the browser console).
+      scriptingAPI.exposeScriptingAPI();
     }
 
     /**
@@ -541,7 +551,7 @@ define(function (require) {
 
         // setup fake model definition
         controller.currentModel = {};
-        createScriptingAPI();
+        createOrUpdateScriptingAPI();
         finishLoadingInteractive();
       }
     }
@@ -551,11 +561,24 @@ define(function (require) {
 
       @param: modelId.
       @optionalParam modelObject
+      @optionalParam parameters   parameter values to copy to the loaded model
     */
-    function loadModel(id, modelConfig) {
+    function loadModel(id, modelConfig, parameters) {
       var modelDefinition = getModelDefinition(id),
           interactiveViewOptions,
-          interactiveModelOptions;
+          interactiveModelOptions,
+          parameterValues = [];
+
+      // TODO remove this "feature" when interactives can maintain their own
+      //      interactive level parameters (see loadModel in scriptingAPI too)
+      if (parameters) {
+        for (var i = 0; i < parameters.length; i++) {
+          parameterValues.push({
+            "name": parameters[i],
+            "value": model.get(parameters[i])
+          });
+        }
+      }
 
       modelId = id;
       isModelLoaded = false;
@@ -575,13 +598,13 @@ define(function (require) {
       }
 
       if (modelConfig) {
-        finishWithLoadedModel(modelDefinition.url, modelConfig);
+        finishWithLoadedModel(modelDefinition.url, modelConfig, parameterValues);
       } else {
         if (modelDefinition.url) {
           $.get(labConfig.actualRoot + modelDefinition.url).done(function(modelConfig) {
             // Deal with the servers that return the json as text/plain
             modelConfig = typeof modelConfig === 'string' ? JSON.parse(modelConfig) : modelConfig;
-            finishWithLoadedModel(modelDefinition.url, modelConfig);
+            finishWithLoadedModel(modelDefinition.url, modelConfig, parameterValues);
           }).fail(function() {
             modelConfig = {
               "type": "md2d",
@@ -620,11 +643,11 @@ define(function (require) {
                 ]
               }
             };
-            finishWithLoadedModel(modelDefinition.url, modelConfig);
+            finishWithLoadedModel(modelDefinition.url, modelConfig, parameterValues);
           });
         } else {
           modelConfig = modelDefinition.model;
-          finishWithLoadedModel("", modelConfig);
+          finishWithLoadedModel("", modelConfig, parameterValues);
         }
       }
 
@@ -680,7 +703,7 @@ define(function (require) {
         return modelOptions;
       }
 
-      function finishWithLoadedModel(modelUrl, modelConfig) {
+      function finishWithLoadedModel(modelUrl, modelConfig, parameterValues) {
         var modelOptions = processOptions(modelConfig, interactiveModelOptions, interactiveViewOptions);
 
         if (modelController) {
@@ -696,7 +719,7 @@ define(function (require) {
         setupModelPlayerKeyboardHandler();
 
 
-        finishLoadingInteractive();
+        finishLoadingInteractive(parameterValues);
       }
 
       function createModelController(type, modelUrl, modelOptions) {
@@ -714,7 +737,7 @@ define(function (require) {
       }
     }
 
-    function finishLoadingInteractive() {
+    function finishLoadingInteractive(parameterValues) {
       var componentJsons,
           i, len;
 
@@ -732,8 +755,16 @@ define(function (require) {
 
       model = modelController.model;
 
-      createScriptingAPI();
+      createOrUpdateScriptingAPI();
       initializeModelOutputsAndParameters();
+
+      // update the parameterValues if values have been provided, e.g. if some parameter values
+      // were retained when loading a model using a radio controller
+      if (parameterValues) {
+        for (i = 0; i < parameterValues.length; i++) {
+          model.set(parameterValues[i].name, parameterValues[i].value);
+        }
+      }
 
       onLoadScripts = [];
       if (controller.currentModel.onLoad) {
@@ -850,7 +881,7 @@ define(function (require) {
       var i;
 
       model = modelController.model;
-      createScriptingAPI();
+      createOrUpdateScriptingAPI();
 
       initializeModelOutputsAndParameters();
 

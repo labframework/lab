@@ -80,15 +80,21 @@ define(function(require) {
           y1 = m2pxInv(d.y1),
           x2 = m2px(d.x2),
           y2 = m2pxInv(d.y2),
+          r1 = m2px(modelAtoms[d.atom1].radius),
+          r2 = m2px(modelAtoms[d.atom2].radius),
           dx = x2 - x1,
           dy = y2 - y1,
+          len = Math.sqrt(dx * dx + dy * dy);
 
-          radiusFactor = modelAtoms[d.atom1].radius / (modelAtoms[d.atom1].radius + modelAtoms[d.atom2].radius),
-          xMid = x2 * radiusFactor + x1 * (1 - radiusFactor),
-          yMid = y2 * radiusFactor + y1 * (1 - radiusFactor),
+      // Fast path if bond is invisible anyway. Use 2 ratio, because when length is exactly equal
+      // to r1 and r2 sum, double and triple bonds can be still visible (they are wide enough).
+      if (2 * len - r1 - r2 <= 0) return;
+
+      var midRatio = 0.5 * (len + r1 - r2) / len,
+          xMid = x1 + midRatio * dx,
+          yMid = y1 + midRatio * dy,
 
           bondWidth = getBondWidth(d),
-
           bondShift, bondAngle, xs, ys;
 
       if (d.type === RADIAL_BOND_TYPES.DOUBLE_BOND) {

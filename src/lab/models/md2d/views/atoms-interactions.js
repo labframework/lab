@@ -25,7 +25,7 @@ define(function(require) {
 
         downAtom,
         contextMenuAtom,
-        dragged;
+        dragging, dragged;
 
     //**********************************************************************************************
     // Event handlers related to particular atom:
@@ -85,7 +85,9 @@ define(function(require) {
       } else {
         mouseOutHandler(p.x, p.y, e);
       }
-      setCursorForAtom(atom);
+      if (!dragging) {
+        setCursorForAtom(atom);
+      }
     }
 
     function mouseUpCanvas(e) {
@@ -149,8 +151,12 @@ define(function(require) {
       }
     }
 
+    var cursorVal;
     function setCursor(name) {
-      document.documentElement.style.cursor = name;
+      if (cursorVal !== name) {
+        cursorVal = name;
+        document.documentElement.style.cursor = name;
+      }
     }
 
     function init() {
@@ -246,6 +252,7 @@ define(function(require) {
           } else if (atom.draggable) {
             model.liveDragStart(i);
           }
+          dragging = true;
           dragged = true;
         }
 
@@ -283,10 +290,9 @@ define(function(require) {
 
         // If user only clicked an atom (mousedown + mouseup, no mousemove), nothing to do.
         if (!dragged) return;
-
+        dragging = false;
         // Prevent accidental text selection or another unwanted action while dragging.
         e.preventDefault();
-
         // Pointer can be over atom or not (e.g. when user finished dragging below other object).
         setCursorFromEvent(e);
 
@@ -294,7 +300,7 @@ define(function(require) {
           // Important: set position to (atom.x, atom.y), not (x, y)! Note that custom drag handler
           // could be executed and it could change actual position!
           if (!setAtomPosition(i, atom.x, atom.y, true, true)) {
-            alert("You can't drop the atom there");
+            alert("You can't drop the object there.");
             setAtomPosition(i, originX, originY, false, true);
             modelView.update();
           }

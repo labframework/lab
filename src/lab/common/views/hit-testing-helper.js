@@ -71,6 +71,8 @@ define(function (require) {
 
       EVENT_TYPES = ['mousedown', 'mouseup', 'contextmenu'];
 
+  function noop() {}
+
   /**
    * @param {Element} foregroundNode the top-most layer.
    */
@@ -101,6 +103,7 @@ define(function (require) {
       var clonedEvent = document.createEvent("MouseEvent");
       clonedEvent.initMouseEvent(e.type, e.bubbles, e.cancelable, e.view, e.detail, e.screenX, e.screenY, e.clientX, e.clientY, e.ctrlKey, e.altKey, e.shiftKey, e.metaKey, e.button, e.relatedTarget);
       clonedEvent.target = target;
+      clonedEvent.forwardedTouchEvent = e.forwardedTouchEvent;
       return clonedEvent;
     }
 
@@ -149,6 +152,10 @@ define(function (require) {
         }
 
         if (layer.tagName.toLowerCase() === "canvas") {
+          // For now we have to dispatch an event first, *then* see if the Canvas-based view
+          // considered it a hit -- we stopPropagation and keep going if it does not report a hit.
+          mouseEvent = retargetMouseEvent(e, layer);
+
           // Need to ask the Canvas-based view to perform custom hit-testing.
           // TODO: make this a static function rather than rebinding to closure each time.
           api.hitTestCallback = function(isHit) {
@@ -158,15 +165,17 @@ define(function (require) {
               mouseEvent.preventDefault();
             }
           };
-
           api.mouseupCallback = function(isClick) {
             isCanvasObjectClick = isClick;
           };
 
-          // For now we have to dispatch an event first, *then* see if the Canvas-based view
-          // considered it a hit -- we stopPropagation and keep going if it does not report a hit.
-          mouseEvent = retargetMouseEvent(e, layer);
           layer.dispatchEvent(mouseEvent);
+
+          // Restore safe noop functions. It ensures that even if client code calls one of them
+          // unnecessarily, it won't have unwanted, side effects like .preventDefault() or
+          // .stopPropagation() calls.
+          api.hitTestCallback = noop;
+          api.mouseupCallback = noop;
 
           if (isCanvasObjectClick) {
             // The canvas view itself won't listen to this click, but let the click bubble.
@@ -227,6 +236,8 @@ define(function (require) {
       function createMouseEvent(touch, type) {
         var mouseEvent = document.createEvent("MouseEvent");
         mouseEvent.initMouseEvent(type, true, true, window, 1, touch.screenX, touch.screenY, touch.clientX, touch.clientY, false, false, false, false, 0, null);
+        // This flag prevents FastClick from trying to pre-emptively cancel the event
+        mouseEvent.forwardedTouchEvent = true;
         return mouseEvent;
       }
 
@@ -419,7 +430,7 @@ define(function (require) {
         // Return a cloned version of 'e' but with a different 'type', 'target' and 'relatedTarget'.
         function createMouseEvent(e, type, target, relatedTarget) {
           var clonedEvent = document.createEvent("MouseEvent");
-          clonedEvent.initMouseEvent(type, e.bubbles, e.cancelable, e.view, e.detail, e.screenX, e.screenY, e.clientX, e.clientY, e.ctrlKey, e.altKey, e.shiftKey, e.metaKey, e.button, relatedTarget);
+          clonedEvent.initMouseEvent(type, e.bubbles, e.cancelable, e.view, e.detail, e.screenX, e.screenY, e.clientX, e.clientY, e.ctrlKey, e.altKey, e.shiftKey, e.metaKey, e.button, relatedTarget || e.relatedTarget);
           clonedEvent.target = target;
           return clonedEvent;
         }
@@ -448,6 +459,9 @@ define(function (require) {
             e.preventDefault();
             mouseEvent = retargetMouseEvent(e, target);
             mouseEvent.synthetic = true; // !!!
+            // We don't support more sophisticated mousemove event passing, e.g. based on the hit
+            // test results (yet?), so just set noop callback.
+            api.hitTestCallback = noop;
             target.dispatchEvent(mouseEvent);
             // Set the defaultPreventedFlag. That's why we redispatch event even if we don't change
             // target of the event.
@@ -473,13 +487,13 @@ define(function (require) {
        * below canvas.
        * @param {Boolean} isHit
        */
-      hitTestCallback: function (isHit) {},
+      hitTestCallback: noop,
 
       /**
        * Lets canvas notify this helper whether 'click' event should be dispatched.
        * @param {Boolean} isClick
        */
-      mouseupCallback: function (isClick) {}
+      mouseupCallback: noop
     };
 
     init();
