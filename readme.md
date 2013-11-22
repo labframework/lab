@@ -402,7 +402,7 @@ Copy the sample project configuration file to `config/config.yml` (you can exami
 Create a git `post-commit` hook by creating the file `.git/hooks/post-commit` and adding this content:
 
     #!/bin/sh
-    (cd ../.. && ./script/update-git-commit-and-branch.rb)
+    ./script/update-git-commit-and-branch.rb
 
 Make the file `.git/hooks/post-commit` executable:
 
