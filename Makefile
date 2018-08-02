@@ -1,7 +1,7 @@
 # See the README for installation instructions.
 
 # Utilities
-JS_COMPILER = ./node_modules/uglify-js/bin/uglifyjs - -c warnings=false -m
+JS_COMPILER = ./node_modules/uglify-js/bin/uglifyjs -c warnings=false -m
 MARKDOWN_COMPILER = kramdown
 
 # Turns out that just pointing Vows at a directory doesn't work, and its test matcher matches on
@@ -308,8 +308,8 @@ public/lab/vendor/jquery-selectBoxIt:
 
 public/lab/vendor/jquery-context-menu:
 	mkdir -p public/lab/vendor/jquery-context-menu
-	cp vendor/jquery-context-menu/src/jquery.contextMenu.js public/lab/vendor/jquery-context-menu
-	cp vendor/jquery-context-menu/src/jquery.contextMenu.css public/lab/vendor/jquery-context-menu
+	cp vendor/jquery-context-menu/dist/jquery.contextMenu.js public/lab/vendor/jquery-context-menu
+	cp vendor/jquery-context-menu/dist/jquery.contextMenu.css public/lab/vendor/jquery-context-menu
 
 public/lab/vendor/jquery/jquery.min.js: \
 	vendor/jquery \
@@ -325,14 +325,14 @@ public/lab/vendor/jquery:
 public/lab/vendor/jquery-ui/jquery-ui.min.js: \
 	vendor/components-jqueryui \
 	public/lab/vendor/jquery-ui
-	cp vendor/components-jqueryui/MIT-LICENSE.txt public/lab/vendor/jquery-ui
+	# cp vendor/components-jqueryui/MIT-LICENSE.txt public/lab/vendor/jquery-ui
 	mkdir -p public/lab/vendor/jquery-ui/i18n
-	cp vendor/components-jqueryui/ui/jquery-ui.js public/lab/vendor/jquery-ui
-	cp vendor/components-jqueryui/ui/i18n/jquery-ui-i18n.js public/lab/vendor/jquery-ui/i18n
-	cp vendor/components-jqueryui/ui/minified/jquery-ui.min.js public/lab/vendor/jquery-ui
-	cp vendor/components-jqueryui/ui/minified/i18n/jquery-ui-i18n.min.js public/lab/vendor/jquery-ui/i18n
+	cp vendor/components-jqueryui/jquery-ui.js public/lab/vendor/jquery-ui
+	# cp vendor/components-jqueryui/ui/i18n/jquery-ui-i18n.js public/lab/vendor/jquery-ui/i18n
+	cp vendor/components-jqueryui/jquery-ui.min.js public/lab/vendor/jquery-ui
+	# cp vendor/components-jqueryui/ui/minified/i18n/jquery-ui-i18n.min.js public/lab/vendor/jquery-ui/i18n
 	cp vendor/components-jqueryui/themes/base/jquery-ui.css public/lab/vendor/jquery-ui
-	cp vendor/components-jqueryui/themes/base/minified/jquery-ui.min.css public/lab/vendor/jquery-ui
+	# cp vendor/components-jqueryui/themes/base/minified/jquery-ui.min.css public/lab/vendor/jquery-ui
 	cp -r vendor/components-jqueryui/themes/base/images public/lab/vendor/jquery-ui
 
 public/lab/vendor/jquery-ui:

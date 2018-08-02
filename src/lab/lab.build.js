@@ -66,7 +66,7 @@
     'iframe-phone': '../../vendor/iframe-phone/dist/iframe-phone',
     'text': '../../vendor/text/text',
     'cs' :'../../vendor/require-cs/cs',
-    'coffee-script': '../../vendor/coffee-script/extras/coffee-script',
+    'coffee-script': '../../vendor/coffee-script/docs/v1/browser-compiler/coffee-script',
     'underscore': '../../vendor/underscore/underscore',
     'pixi': '../../vendor/pixi.js/bin/pixi.dev',
     'canvg': '../../vendor/canvg-1.3/canvg',

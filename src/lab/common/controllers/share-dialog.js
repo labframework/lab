@@ -11,7 +11,7 @@ define(function (require) {
       location = document.location,
 
       // A tiny template, so define it inline and compile immediately.
-      iframeTpl = mustache.compile('<iframe width="{{width}}px" height="{{height}}px" ' +
+      iframeTpl = mustache.parse('<iframe width="{{width}}px" height="{{height}}px" ' +
         'frameborder="no" scrolling="no" allowfullscreen="true" webkitallowfullscreen="true"' +
         ' mozallowfullscreen="true" src="{{{embeddableSharingUrl}}}"></iframe>');
 

@@ -30,7 +30,7 @@
     'arrays': '../modules/arrays/index',
     'browserified-cheerio': '../../vendor/browserified-cheerio/browserified-cheerio',
     'cs': '../../vendor/require-cs/cs',
-    'coffee-script': '../../vendor/coffee-script/extras/coffee-script'
+    'coffee-script': '../../vendor/coffee-script/docs/v1/browser-compiler/coffee-script'
   },
 
   // Protect global namespace and call export of API.
